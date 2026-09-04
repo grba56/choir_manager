@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f172a">
+<title>Choir TLV — Attendance</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#111827; --muted:#6b7280; --line:#e5e7eb;
+    --accent:#0f766e; --accent-ink:#ffffff; --warn:#b45309; --warn-bg:#fffbeb;
+    --danger:#b91c1c; --ok-bg:#ecfdf5; --ok-line:#99f6e4;
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0b1220; --card:#131c2b; --ink:#e5e7eb; --muted:#9aa4b2; --line:#25314a;
+      --accent:#14b8a6; --accent-ink:#04211d; --warn:#fbbf24; --warn-bg:#2a2109;
+      --danger:#f87171; --ok-bg:#0d2b26; --ok-line:#115e59;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-text-size-adjust:100%;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:0 12px 96px}
+  h1{font-size:18px;margin:0}
+  button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,select{font:inherit;color:inherit}
+
+  /* ---------- header ---------- */
+  header{
+    position:sticky;top:0;z-index:20;background:var(--bg);
+    padding:10px 0 8px;border-bottom:1px solid var(--line);
+    margin-bottom:10px;
+  }
+  .hrow{display:flex;gap:8px;align-items:center;max-width:640px;margin:0 auto;padding:0 12px}
+  .classpick{
+    flex:1;appearance:none;background:var(--card);border:1px solid var(--line);
+    border-radius:10px;padding:10px 32px 10px 12px;font-weight:600;
+    background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 16px) 55%,calc(100% - 11px) 55%;
+    background-size:5px 5px,5px 5px;background-repeat:no-repeat;
+  }
+  .counter{font-size:13px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .searchrow{max-width:640px;margin:8px auto 0;padding:0 12px}
+  .search{
+    width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:12px 12px;
+  }
+  .search:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  .iconbtn{color:var(--muted);padding:8px;border-radius:8px;font-size:20px;line-height:1}
+
+  /* ---------- rows ---------- */
+  .section-label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 4px 6px}
+  ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+  .row{
+    display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px;min-height:60px;transition:background .12s,border-color .12s;
+  }
+  .row:active{transform:scale(.995)}
+  .row.on{background:var(--ok-bg);border-color:var(--ok-line)}
+  .box{
+    flex:0 0 26px;height:26px;border-radius:8px;border:2px solid var(--line);
+    display:grid;place-items:center;font-size:16px;color:transparent;
+  }
+  .row.on .box{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  .who{flex:1;min-width:0}
+  .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta{font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta .flag{color:var(--warn);font-weight:600}
+  .row.busy{opacity:.5;pointer-events:none}
+
+  .add{border-style:dashed}
+  .add .box{border-style:dashed;color:var(--muted);font-size:18px}
+  .empty{color:var(--muted);text-align:center;padding:28px 12px;font-size:14px}
+
+  /* ---------- setup / dialogs ---------- */
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-top:24px}
+  .panel h2{font-size:16px;margin:0 0 6px}
+  .panel p{color:var(--muted);font-size:13.5px;margin:0 0 14px}
+  .field{display:block;margin-bottom:12px}
+  .field span{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
+  .field input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+  .primary{background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:12px 16px;font-weight:600;width:100%}
+  .ghost{color:var(--muted);font-size:13px;padding:8px 0}
+  .err{color:var(--danger);font-size:13.5px;margin-top:10px;white-space:pre-wrap}
+
+  dialog{
+    border:none;border-radius:var(--radius);padding:0;background:var(--card);color:var(--ink);
+    width:min(420px,calc(100vw - 32px));
+  }
+  dialog::backdrop{background:rgba(0,0,0,.5)}
+  .dlg{padding:18px}
+  .dlg h3{margin:0 0 4px;font-size:16px}
+  .dlg p{margin:0 0 14px;color:var(--muted);font-size:13.5px}
+  .dlgbtns{display:flex;gap:8px;margin-top:4px}
+  .dlgbtns .primary{flex:1}
+  .dlgbtns .cancel{flex:0 0 auto;padding:12px 16px;color:var(--muted)}
+
+  .toast{
+    position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom));
+    background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;
+    z-index:50;box-shadow:0 6px 24px rgba(0,0,0,.25);max-width:calc(100vw - 32px);
+  }
+  .toast.bad{background:var(--danger);color:#fff}
+  .hidden{display:none !important}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px}
+  @keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- ============ SETUP ============ -->
+<div id="setup" class="wrap hidden">
+  <div class="panel">
+    <h2>Connect to Airtable</h2>
+    <p>Paste a personal access token with <b>data.records:read</b>, <b>data.records:write</b> and <b>schema.bases:read</b> on the Choir CRM base. It is stored only in this browser.</p>
+    <label class="field"><span>Personal access token</span><input id="tokenInput" type="password" placeholder="pat..." autocomplete="off" spellcheck="false"></label>
+    <button class="primary" id="saveToken">Connect</button>
+    <div class="err" id="setupErr"></div>
+    <button class="ghost" id="patHelp">Where do I get a token?</button>
+    <p id="patHelpText" class="hidden" style="margin-top:8px">
+      airtable.com/create/tokens → Create token → add the three scopes above → give it access to the
+      “Choir CRM (main)” base only → copy the <code>pat…</code> string.
+    </p>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" class="hidden">
+  <header>
+    <div class="hrow">
+      <select class="classpick" id="classPick" aria-label="Class"></select>
+      <span class="counter" id="counter">—</span>
+      <button class="iconbtn" id="refresh" title="Reload" aria-label="Reload">⟳</button>
+    </div>
+    <div class="searchrow">
+      <input class="search" id="search" type="search" placeholder="Search or add a singer…" autocomplete="off" autocorrect="off" spellcheck="false">
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div id="loading" class="empty"><span class="spin"></span> Loading…</div>
+    <div id="lists"></div>
+    <button class="ghost" id="forget" style="margin-top:28px">Disconnect this device</button>
+  </div>
+</div>
+
+<dialog id="newMemberDlg">
+  <form class="dlg" method="dialog" id="newMemberForm">
+    <h3>New singer</h3>
+    <p>Creates a member with status <b>Trial</b> and marks them present today. Fill in the rest later in Airtable.</p>
+    <label class="field"><span>Full name</span><input id="nmName" required></label>
+    <label class="field"><span>Phone (optional)</span><input id="nmPhone" type="tel" inputmode="tel" placeholder="+972…"></label>
+    <div class="dlgbtns">
+      <button type="button" class="cancel" id="nmCancel">Cancel</button>
+      <button type="submit" class="primary">Add &amp; mark present</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  "use strict";
+
+  /* ---------------- config ---------------- */
+  const BASE = "appZqiHpTJLLh90eP";
+  const T = {
+    members:  "tbluBsfQK97mUAFzC",
+    subs:     "tblLi7xK9BEU57JzR",
+    att:      "tblafaWm2tx9fA19T",
+    classes:  "tblpZacp8qjKIanky",
+  };
+  const API = "https://api.airtable.com/v0/";
+  const LS_TOKEN = "choir.att.token";
+
+  /* ---------------- state ---------------- */
+  let token = "";
+  let classes = [];          // [{id, date, status}]
+  let currentClassId = null;
+  let roster = [];           // [{id, memberId, name, present, sub}]
+  let members = [];          // [{id, name, phone, status}]
+  let activeSubs = new Map();// memberId -> {id, type, remaining, end}
+  let searchTerm = "";
+
+  /* ---------------- tiny helpers ---------------- */
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls) => { const n = document.createElement(tag); if (cls) n.className = cls; return n; };
+  const todayISO = () => {
+    const d = new Date(); // local date, no UTC shift
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  };
+  const fmtDate = iso => {
+    const d = new Date(iso.slice(0,10) + "T00:00:00");
+    const s = d.toLocaleDateString(undefined, {weekday:"short", day:"numeric", month:"short"});
+    return iso.slice(0,10) === todayISO() ? `Today · ${s}` : s;
+  };
+  const norm = s => (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
+
+  let toastTimer;
+  function toast(msg, bad){
+    document.querySelectorAll(".toast").forEach(t=>t.remove());
+    const t = el("div","toast" + (bad ? " bad" : "")); t.textContent = msg;
+    document.body.appendChild(t);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>t.remove(), bad ? 6000 : 2200);
+  }
+
+  /* ---------------- airtable ---------------- */
+  async function at(path, opts = {}){
+    const res = await fetch(API + path, {
+      ...opts,
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+        ...(opts.headers||{})
+      }
+    });
+    if (!res.ok){
+      let detail = "";
+      try { const j = await res.json(); detail = j.error ? (j.error.message || j.error.type || JSON.stringify(j.error)) : ""; } catch(_) {}
+      const e = new Error(`Airtable ${res.status}${detail ? ": " + detail : ""}`);
+      e.status = res.status;
+      throw e;
+    }
+    return res.status === 204 ? null : res.json();
+  }
+
+  async function listAll(table, params = {}){
+    const out = [];
+    let offset;
+    do {
+      const q = new URLSearchParams();
+      for (const [k,v] of Object.entries(params)){
+        if (Array.isArray(v)) v.forEach(x => q.append(k, x));
+        else if (v != null) q.set(k, v);
+      }
+      if (offset) q.set("offset", offset);
+      const j = await at(`${BASE}/${table}?${q}`);
+      out.push(...j.records);
+      offset = j.offset;
+    } while (offset);
+    return out;
+  }
+
+  const esc = s => String(s).replace(/'/g, "\\'");
+
+  /* ---------------- data loading ---------------- */
+  async function loadClasses(){
+    const recs = await listAll(T.classes, {
+      "fields[]": ["Date", "Status", "Attendance"],
+      "sort[0][field]": "Date",
+      "sort[0][direction]": "desc",
+      pageSize: 100
+    });
+    classes = recs
+      .filter(r => r.fields.Date)
+      .map(r => ({
+        id: r.id,
+        date: r.fields.Date.slice(0,10),
+        status: r.fields.Status || "",
+        attIds: r.fields.Attendance || []
+      }));
+  }
+
+  async function loadPeople(){
+    const [mRecs, sRecs] = await Promise.all([
+      listAll(T.members, { "fields[]": ["Full Name","Phone","Status"], pageSize: 100 }),
+      listAll(T.subs, {
+        "fields[]": ["Member","Subscription Type","Classes Remaining","End Date","is active"],
+        filterByFormula: "{is active}",
+        pageSize: 100
+      })
+    ]);
+    members = mRecs.map(r => ({
+      id: r.id,
+      name: r.fields["Full Name"] || "(no name)",
+      phone: r.fields.Phone || "",
+      status: r.fields.Status || ""
+    })).sort((a,b)=>a.name.localeCompare(b.name));
+
+    activeSubs = new Map();
+    for (const r of sRecs){
+      const mids = r.fields.Member || [];
+      const cand = {
+        id: r.id,
+        type: r.fields["Subscription Type"] || "",
+        remaining: r.fields["Classes Remaining"],
+        end: r.fields["End Date"] || null
+      };
+      for (const mid of mids){
+        const prev = activeSubs.get(mid);
+        // soonest-expiring active sub wins (matches the roster automation)
+        if (!prev) { activeSubs.set(mid, cand); continue; }
+        const a = prev.end || "9999-12-31", b = cand.end || "9999-12-31";
+        if (b < a) activeSubs.set(mid, cand);
+      }
+    }
+  }
+
+  async function loadRoster(){
+    const cls = classes.find(c => c.id === currentClassId);
+    roster = [];
+    if (!cls || !cls.attIds.length) return;
+
+    const recs = [];
+    for (let i = 0; i < cls.attIds.length; i += 50){
+      const chunk = cls.attIds.slice(i, i+50);
+      const formula = "OR(" + chunk.map(id => `RECORD_ID()='${esc(id)}'`).join(",") + ")";
+      recs.push(...await listAll(T.att, {
+        "fields[]": ["Member","Attendance Actual","Class Date","Subscriptions Used"],
+        filterByFormula: formula,
+        pageSize: 100
+      }));
+    }
+    roster = recs.map(r => ({
+      id: r.id,
+      memberId: (r.fields.Member || [])[0] || null,
+      present: !!r.fields["Attendance Actual"]
+    }));
+    sortRoster();
+  }
+
+  function sortRoster(){
+    roster.sort((a,b) => memberName(a.memberId).localeCompare(memberName(b.memberId)));
+  }
+
+  const memberById = id => members.find(m => m.id === id);
+  const memberName = id => { const m = memberById(id); return m ? m.name : "(unknown member)"; };
+
+  /* ---------------- rendering ---------------- */
+  function subLine(memberId){
+    const sub = activeSubs.get(memberId);
+    if (!sub) return `<span class="flag">no active subscription</span>`;
+    const bits = [sub.type || "subscription"];
+    if (typeof sub.remaining === "number" && sub.type !== "monthly unlimited"){
+      bits.push(`${sub.remaining} left`);
+    }
+    if (sub.end) bits.push(`until ${sub.end.slice(0,10)}`);
+    const low = typeof sub.remaining === "number" && sub.remaining <= 1 && sub.type !== "monthly unlimited";
+    return low ? `<span class="flag">${bits.join(" · ")}</span>` : bits.join(" · ");
+  }
+
+  function rosterRow(entry){
+    const li = el("li");
+    const b = el("button", "row" + (entry.present ? " on" : ""));
+    b.type = "button";
+    b.innerHTML =
+      `<span class="box">✓</span>
+       <span class="who">
+         <span class="name"></span>
+         <span class="meta">${subLine(entry.memberId)}</span>
+       </span>`;
+    b.querySelector(".name").textContent = memberName(entry.memberId);
+    b.addEventListener("click", () => togglePresent(entry, b));
+    li.appendChild(b);
+    return li;
+  }
+
+  function addRow(label, sublabel, onClick){
+    const li = el("li");
+    const b = el("button", "row add");
+    b.type = "button";
+    b.innerHTML = `<span class="box">＋</span><span class="who"><span class="name"></span><span class="meta"></span></span>`;
+    b.querySelector(".name").textContent = label;
+    b.querySelector(".meta").textContent = sublabel;
+    b.addEventListener("click", () => onClick(b));
+    li.appendChild(b);
+    return li;
+  }
+
+  function render(){
+    const box = $("#lists");
+    box.innerHTML = "";
+    const q = norm(searchTerm);
+
+    const shown = q ? roster.filter(e => norm(memberName(e.memberId)).includes(q)) : roster;
+
+    // roster
+    if (shown.length){
+      if (q){ const h = el("div","section-label"); h.textContent = "On the list"; box.appendChild(h); }
+      const ul = el("ul");
+      shown.forEach(e => ul.appendChild(rosterRow(e)));
+      box.appendChild(ul);
+    } else if (!q){
+      const d = el("div","empty");
+      d.textContent = "No one on the roster for this class yet. Search a name above to add someone.";
+      box.appendChild(d);
+    }
+
+    if (!q) { renderFooterCount(); return; }
+
+    // members not on the roster
+    const onRoster = new Set(roster.map(e => e.memberId));
+    const candidates = members
+      .filter(m => !onRoster.has(m.id) && norm(m.name).includes(q))
+      .slice(0, 12);
+
+    if (candidates.length){
+      const h = el("div","section-label"); h.textContent = "Not on the list";
+      box.appendChild(h);
+      const ul = el("ul");
+      for (const m of candidates){
+        const sub = activeSubs.get(m.id);
+        const meta = sub ? `${sub.type}${sub.end ? " · until " + sub.end.slice(0,10) : ""}` : (m.status ? m.status.toLowerCase() : "no active subscription");
+        ul.appendChild(addRow(m.name, meta, btn => addExisting(m, btn)));
+      }
+      box.appendChild(ul);
+    }
+
+    // brand new member
+    const h2 = el("div","section-label"); h2.textContent = "Not in the CRM";
+    box.appendChild(h2);
+    const ul2 = el("ul");
+    ul2.appendChild(addRow(`Create “${searchTerm.trim()}”`, "new member, status Trial", () => openNewMember(searchTerm.trim())));
+    box.appendChild(ul2);
+
+    renderFooterCount();
+  }
+
+  function renderFooterCount(){
+    const present = roster.filter(e => e.present).length;
+    $("#counter").textContent = `${present}/${roster.length}`;
+  }
+
+  function renderClassPicker(){
+    const sel = $("#classPick");
+    sel.innerHTML = "";
+    for (const c of classes.slice(0, 40)){
+      const o = el("option");
+      o.value = c.id;
+      o.textContent = fmtDate(c.date) + (c.status === "Cancelled" ? " · cancelled" : "");
+      sel.appendChild(o);
+    }
+    sel.value = currentClassId;
+  }
+
+  function pickDefaultClass(){
+    const t = todayISO();
+    const exact = classes.find(c => c.date === t);
+    if (exact) return exact.id;
+    // nearest class by absolute distance, preferring the most recent past one
+    let best = null, bestDist = Infinity;
+    for (const c of classes){
+      const dist = Math.abs(new Date(c.date) - new Date(t));
+      if (dist < bestDist){ bestDist = dist; best = c; }
+    }
+    return best ? best.id : null;
+  }
+
+  /* ---------------- actions ---------------- */
+  async function togglePresent(entry, btn){
+    const next = !entry.present;
+    btn.classList.add("busy");
+    btn.classList.toggle("on", next);
+    try {
+      await at(`${BASE}/${T.att}/${entry.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ fields: { "Attendance Actual": next } })
+      });
+      entry.present = next;
+      renderFooterCount();
+    } catch (err){
+      btn.classList.toggle("on", entry.present);
+      toast(err.message, true);
+    } finally {
+      btn.classList.remove("busy");
+    }
+  }
+
+  function attendancePayload(memberId){
+    const cls = classes.find(c => c.id === currentClassId);
+    const fields = {
+      "Member": [memberId],
+      "Classes": [cls.id],
+      "Class Date": cls.date,
+      "Attendance Actual": true
+    };
+    const sub = activeSubs.get(memberId);
+    if (sub) fields["Subscriptions Used"] = [sub.id];
+    return { fields };
+  }
+
+  async function createAttendance(memberId){
+    const j = await at(`${BASE}/${T.att}`, {
+      method: "POST",
+      body: JSON.stringify({ records: [ attendancePayload(memberId) ], typecast: true })
+    });
+    const rec = j.records[0];
+    const cls = classes.find(c => c.id === currentClassId);
+    cls.attIds.push(rec.id);
+    roster.push({ id: rec.id, memberId, present: true });
+    sortRoster();
+  }
+
+  async function addExisting(m, btn){
+    btn.classList.add("busy");
+    try {
+      await createAttendance(m.id);
+      $("#search").value = ""; searchTerm = "";
+      render();
+      toast(`${m.name} marked present`);
+    } catch (err){
+      btn.classList.remove("busy");
+      toast(err.message, true);
+    }
+  }
+
+  function openNewMember(prefill){
+    $("#nmName").value = prefill || "";
+    $("#nmPhone").value = "";
+    $("#newMemberDlg").showModal();
+  }
+
+  async function createMemberAndMark(name, phone){
+    const fields = {
+      "Full Name": name,
+      "Status": "Trial",
+      "Registration Date": todayISO()
+    };
+    if (phone) fields["Phone"] = phone;
+    const j = await at(`${BASE}/${T.members}`, {
+      method: "POST",
+      body: JSON.stringify({ records: [{ fields }], typecast: true })
+    });
+    const rec = j.records[0];
+    members.push({ id: rec.id, name, phone, status: "Trial" });
+    members.sort((a,b)=>a.name.localeCompare(b.name));
+    await createAttendance(rec.id);
+  }
+
+  /* ---------------- boot ---------------- */
+  async function refreshAll(keepClass){
+    $("#loading").classList.remove("hidden");
+    $("#lists").innerHTML = "";
+    try {
+      await Promise.all([loadClasses(), loadPeople()]);
+      if (!classes.length){ $("#loading").textContent = "No classes in the base."; return; }
+      if (!keepClass || !classes.some(c => c.id === currentClassId)) currentClassId = pickDefaultClass();
+      renderClassPicker();
+      await loadRoster();
+      $("#loading").classList.add("hidden");
+      render();
+    } catch (err){
+      $("#loading").classList.add("hidden");
+      if (err.status === 401 || err.status === 403){
+        showSetup("That token was rejected (" + err.message + ").\nCheck the scopes and that the token has access to the Choir CRM base.");
+      } else {
+        $("#lists").innerHTML = `<div class="empty">${err.message}</div>`;
+      }
+    }
+  }
+
+  function showSetup(msg){
+    $("#app").classList.add("hidden");
+    $("#setup").classList.remove("hidden");
+    $("#setupErr").textContent = msg || "";
+    $("#tokenInput").value = "";
+  }
+
+  function showApp(){
+    $("#setup").classList.add("hidden");
+    $("#app").classList.remove("hidden");
+  }
+
+  function readToken(){
+    try { return localStorage.getItem(LS_TOKEN) || ""; } catch(_){ return ""; }
+  }
+  function writeToken(v){
+    try { v ? localStorage.setItem(LS_TOKEN, v) : localStorage.removeItem(LS_TOKEN); } catch(_){}
+  }
+
+  /* ---------------- wiring ---------------- */
+  $("#saveToken").addEventListener("click", async () => {
+    const v = $("#tokenInput").value.trim();
+    if (!v){ $("#setupErr").textContent = "Paste a token first."; return; }
+    token = v;
+    $("#setupErr").textContent = "Checking…";
+    try {
+      await at(`${BASE}/${T.classes}?pageSize=1`);
+      writeToken(v);
+      $("#setupErr").textContent = "";
+      showApp();
+      refreshAll(false);
+    } catch (err){
+      $("#setupErr").textContent = err.message;
+    }
+  });
+  $("#tokenInput").addEventListener("keydown", e => { if (e.key === "Enter") $("#saveToken").click(); });
+  $("#patHelp").addEventListener("click", () => $("#patHelpText").classList.toggle("hidden"));
+
+  $("#classPick").addEventListener("change", async e => {
+    currentClassId = e.target.value;
+    $("#search").value = ""; searchTerm = "";
+    $("#loading").classList.remove("hidden"); $("#lists").innerHTML = "";
+    try { await loadRoster(); } catch(err){ toast(err.message, true); }
+    $("#loading").classList.add("hidden");
+    render();
+  });
+
+  $("#refresh").addEventListener("click", () => refreshAll(true));
+
+  let searchTimer;
+  $("#search").addEventListener("input", e => {
+    searchTerm = e.target.value;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(render, 120);
+  });
+
+  $("#nmCancel").addEventListener("click", () => $("#newMemberDlg").close());
+  $("#newMemberForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const name = $("#nmName").value.trim();
+    const phone = $("#nmPhone").value.trim();
+    if (!name) return;
+    $("#newMemberDlg").close();
+    try {
+      await createMemberAndMark(name, phone);
+      $("#search").value = ""; searchTerm = "";
+      render();
+      toast(`${name} added and marked present`);
+    } catch (err){
+      toast(err.message, true);
+    }
+  });
+
+  $("#forget").addEventListener("click", () => {
+    if (!confirm("Remove the saved Airtable token from this device?")) return;
+    writeToken(""); token = "";
+    showSetup("");
+  });
+
+  token = readToken();
+  if (token){ showApp(); refreshAll(false); } else { showSetup(""); }
+})();
+</script>
+</body>
+</html>
