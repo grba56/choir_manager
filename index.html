@@ -55,30 +55,40 @@
   }
   .search:focus{outline:2px solid var(--accent);outline-offset:-1px}
   .iconbtn{color:var(--muted);padding:8px;border-radius:8px;font-size:20px;line-height:1}
+  .iconbtn.spinning{animation:s .7s linear infinite}
 
   /* ---------- rows ---------- */
   .section-label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 4px 6px}
   ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
   .row{
-    display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+    display:flex;align-items:stretch;width:100%;
     background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-    padding:12px;min-height:60px;transition:background .12s,border-color .12s;
+    min-height:60px;overflow:hidden;transition:background .12s,border-color .12s;
   }
-  .row:active{transform:scale(.995)}
   .row.on{background:var(--ok-bg);border-color:var(--ok-line)}
+  .rowmain{
+    flex:1;min-width:0;display:flex;align-items:center;gap:12px;text-align:left;padding:12px;
+  }
+  .rowmain:active{transform:scale(.995)}
   .box{
     flex:0 0 26px;height:26px;border-radius:8px;border:2px solid var(--line);
     display:grid;place-items:center;font-size:16px;color:transparent;
   }
   .row.on .box{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
   .who{flex:1;min-width:0}
-  .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .meta{font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .meta .flag{color:var(--warn);font-weight:600}
+  .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .meta{font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .meta.flag{color:var(--warn);font-weight:600}
   .row.busy{opacity:.5;pointer-events:none}
 
+  .buy{
+    flex:0 0 52px;border-left:1px solid var(--line);color:var(--muted);
+    font-size:19px;font-weight:600;display:grid;place-items:center;
+  }
+  .buy:active{background:var(--warn-bg)}
+
+  .add .rowmain .box{border-style:dashed;color:var(--muted);font-size:18px}
   .add{border-style:dashed}
-  .add .box{border-style:dashed;color:var(--muted);font-size:18px}
   .empty{color:var(--muted);text-align:center;padding:28px 12px;font-size:14px}
 
   /* ---------- setup / dialogs ---------- */
@@ -89,6 +99,7 @@
   .field span{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
   .field input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
   .primary{background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:12px 16px;font-weight:600;width:100%}
+  .primary[disabled]{opacity:.5;pointer-events:none}
   .ghost{color:var(--muted);font-size:13px;padding:8px 0}
   .err{color:var(--danger);font-size:13.5px;margin-top:10px;white-space:pre-wrap}
 
@@ -103,6 +114,26 @@
   .dlgbtns{display:flex;gap:8px;margin-top:4px}
   .dlgbtns .primary{flex:1}
   .dlgbtns .cancel{flex:0 0 auto;padding:12px 16px;color:var(--muted)}
+
+  /* ---------- purchase ---------- */
+  .products{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  .product{
+    background:var(--bg);border:1px solid var(--line);border-radius:10px;
+    padding:11px 10px;text-align:left;min-height:58px;
+  }
+  .product.sel{border-color:var(--accent);background:var(--ok-bg);box-shadow:inset 0 0 0 1px var(--accent)}
+  .product b{display:block;font-size:13.5px;font-weight:600}
+  .product i{display:block;font-style:normal;font-size:12.5px;color:var(--muted);margin-top:2px}
+  .segrow{display:flex;gap:8px;margin-bottom:12px}
+  .seg{
+    flex:1;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;
+    text-align:center;font-size:14px;
+  }
+  .seg.sel{border-color:var(--accent);background:var(--ok-bg);font-weight:600}
+  .terms{font-size:12.5px;color:var(--muted);margin:-4px 0 14px;line-height:1.5}
+  .daterow{display:flex;gap:8px}
+  .daterow .field{flex:1;min-width:0}
+  .daterow input{width:100%}
 
   .toast{
     position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom));
@@ -156,12 +187,34 @@
 <dialog id="newMemberDlg">
   <form class="dlg" method="dialog" id="newMemberForm">
     <h3>New singer</h3>
-    <p>Creates a member with status <b>Trial</b> and marks them present today. Fill in the rest later in Airtable.</p>
+    <p>Creates a member with status <b>Trial</b> and marks them present. Fill in the rest later in Airtable.</p>
     <label class="field"><span>Full name</span><input id="nmName" required></label>
     <label class="field"><span>Phone (optional)</span><input id="nmPhone" type="tel" inputmode="tel" placeholder="+972…"></label>
     <div class="dlgbtns">
       <button type="button" class="cancel" id="nmCancel">Cancel</button>
       <button type="submit" class="primary">Add &amp; mark present</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="buyDlg">
+  <form class="dlg" method="dialog" id="buyForm">
+    <h3 id="buyWho">Purchase</h3>
+    <p id="buyCurrent"></p>
+    <div class="products" id="buyProducts"></div>
+    <div class="daterow">
+      <label class="field"><span>Starts</span><input id="buyStart" type="date" required></label>
+      <label class="field"><span>Ends</span><input id="buyEnd" type="date" required></label>
+    </div>
+    <label class="field"><span>Amount paid (₪)</span><input id="buyAmount" type="number" inputmode="decimal" min="0" step="1" required></label>
+    <div class="segrow" id="buyStatus">
+      <button type="button" class="seg sel" data-status="Paid">Paid</button>
+      <button type="button" class="seg" data-status="Pending">Pending</button>
+    </div>
+    <div class="terms" id="buyTerms"></div>
+    <div class="dlgbtns">
+      <button type="button" class="cancel" id="buyCancel">Cancel</button>
+      <button type="submit" class="primary" id="buySubmit">Record purchase</button>
     </div>
   </form>
 </dialog>
@@ -177,26 +230,37 @@
     subs:     "tblLi7xK9BEU57JzR",
     att:      "tblafaWm2tx9fA19T",
     classes:  "tblpZacp8qjKIanky",
+    price:    "tblv64zRVUxwsIVvD",
   };
   const API = "https://api.airtable.com/v0/";
   const LS_TOKEN = "choir.att.token";
 
+  // Products sold at the door. `priceKey` maps onto the Price table's type_product
+  // column so the amounts stay in sync with Airtable; `fallback` is used if that
+  // row is missing. `classes` = Classes Included (null => unlimited, field left empty).
+  const PRODUCTS = [
+    { key:"trial",  label:"Trial",             type:"trial",             classes:1,    priceKey:"trial",          fallback:50  },
+    { key:"single", label:"Single ticket",     type:"single ticket",     classes:1,    priceKey:"single",         fallback:80  },
+    { key:"m4",     label:"Monthly 4×",        type:"monthly 4x",        classes:4,    priceKey:"1 month 4",      fallback:250 },
+    { key:"unlim",  label:"Monthly unlimited", type:"monthly unlimited", classes:null, priceKey:"1 month unlim",  fallback:300 },
+  ];
+
   /* ---------------- state ---------------- */
   let token = "";
-  let classes = [];          // [{id, date, status}]
+  let classes = [];           // [{id, date, status, attIds}]
   let currentClassId = null;
-  let roster = [];           // [{id, memberId, name, present, sub}]
-  let members = [];          // [{id, name, phone, status}]
-  let activeSubs = new Map();// memberId -> {id, type, remaining, end}
+  let roster = [];            // [{id, memberId, present, subIds}]
+  let members = [];           // [{id, name, phone, status}]
+  let subsById = new Map();   // subId -> sub
+  let activeSubs = new Map(); // memberId -> soonest-expiring active sub
+  let prices = new Map();     // type_product -> amount
   let searchTerm = "";
 
   /* ---------------- tiny helpers ---------------- */
   const $ = s => document.querySelector(s);
   const el = (tag, cls) => { const n = document.createElement(tag); if (cls) n.className = cls; return n; };
-  const todayISO = () => {
-    const d = new Date(); // local date, no UTC shift
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  };
+  const isoOf = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const todayISO = () => isoOf(new Date()); // local date, no UTC shift
   const fmtDate = iso => {
     const d = new Date(iso.slice(0,10) + "T00:00:00");
     const s = d.toLocaleDateString(undefined, {weekday:"short", day:"numeric", month:"short"});
@@ -204,13 +268,44 @@
   };
   const norm = s => (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
 
+  // "Classes Remaining" is an Airtable formula whose result type is text (it can
+  // return ""), so the API hands back "3", not 3. Parse it or every numeric
+  // comparison silently fails.
+  function parseRemaining(v){
+    if (v === null || v === undefined || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function addMonths(iso, n){
+    const d = new Date(iso + "T00:00:00");
+    const day = d.getDate();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + n);
+    const lastDay = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+    d.setDate(Math.min(day, lastDay));
+    return isoOf(d);
+  }
+  function addDays(iso, n){
+    const d = new Date(iso + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    return isoOf(d);
+  }
+  // Every subscription runs for a month by default — same day, next month — and
+  // the manager can override either end of it in the purchase sheet.
+  function defaultEndDate(startISO){ return addMonths(startISO, 1); }
+  function priceFor(product){
+    const p = prices.get(product.priceKey);
+    return (typeof p === "number" && p > 0) ? p : product.fallback;
+  }
+
   let toastTimer;
   function toast(msg, bad){
     document.querySelectorAll(".toast").forEach(t=>t.remove());
     const t = el("div","toast" + (bad ? " bad" : "")); t.textContent = msg;
     document.body.appendChild(t);
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(()=>t.remove(), bad ? 6000 : 2200);
+    toastTimer = setTimeout(()=>t.remove(), bad ? 6000 : 2600);
   }
 
   /* ---------------- airtable ---------------- */
@@ -270,39 +365,59 @@
       }));
   }
 
-  async function loadPeople(){
-    const [mRecs, sRecs] = await Promise.all([
-      listAll(T.members, { "fields[]": ["Full Name","Phone","Status"], pageSize: 100 }),
-      listAll(T.subs, {
-        "fields[]": ["Member","Subscription Type","Classes Remaining","End Date","is active"],
-        filterByFormula: "{is active}",
-        pageSize: 100
-      })
-    ]);
+  async function loadSubs(){
+    // Every subscription, not just the active ones: reconciliation has to be able
+    // to look at the sub an attendance row is currently pointing at, which by
+    // definition may be expired or used up.
+    const sRecs = await listAll(T.subs, {
+      "fields[]": ["Member","Subscription Type","Classes Included","Classes Remaining","Start date","End Date","is active","Payment Status"],
+      pageSize: 100
+    });
+    subsById = new Map();
+    activeSubs = new Map();
+    for (const r of sRecs){
+      const sub = {
+        id: r.id,
+        memberIds: r.fields.Member || [],
+        type: r.fields["Subscription Type"] || "",
+        included: r.fields["Classes Included"] ?? null,
+        remaining: parseRemaining(r.fields["Classes Remaining"]),
+        start: r.fields["Start date"] || null,
+        end: r.fields["End Date"] || null,
+        active: !!r.fields["is active"],
+        payment: r.fields["Payment Status"] || ""
+      };
+      subsById.set(sub.id, sub);
+      if (!sub.active) continue;
+      for (const mid of sub.memberIds){
+        const prev = activeSubs.get(mid);
+        // soonest-expiring active sub wins (matches the roster automation)
+        if (!prev) { activeSubs.set(mid, sub); continue; }
+        const a = prev.end || "9999-12-31", b = sub.end || "9999-12-31";
+        if (b < a) activeSubs.set(mid, sub);
+      }
+    }
+  }
+
+  async function loadMembers(){
+    const mRecs = await listAll(T.members, { "fields[]": ["Full Name","Phone","Status"], pageSize: 100 });
     members = mRecs.map(r => ({
       id: r.id,
       name: r.fields["Full Name"] || "(no name)",
       phone: r.fields.Phone || "",
       status: r.fields.Status || ""
     })).sort((a,b)=>a.name.localeCompare(b.name));
+  }
 
-    activeSubs = new Map();
-    for (const r of sRecs){
-      const mids = r.fields.Member || [];
-      const cand = {
-        id: r.id,
-        type: r.fields["Subscription Type"] || "",
-        remaining: r.fields["Classes Remaining"],
-        end: r.fields["End Date"] || null
-      };
-      for (const mid of mids){
-        const prev = activeSubs.get(mid);
-        // soonest-expiring active sub wins (matches the roster automation)
-        if (!prev) { activeSubs.set(mid, cand); continue; }
-        const a = prev.end || "9999-12-31", b = cand.end || "9999-12-31";
-        if (b < a) activeSubs.set(mid, cand);
+  async function loadPrices(){
+    try {
+      const recs = await listAll(T.price, { "fields[]": ["type_product","amount NIS"], pageSize: 100 });
+      prices = new Map();
+      for (const r of recs){
+        const k = r.fields["type_product"];
+        if (k) prices.set(String(k).trim(), r.fields["amount NIS"]);
       }
-    }
+    } catch(_){ /* prices are a nicety — fall back to the built-in list */ }
   }
 
   async function loadRoster(){
@@ -323,7 +438,8 @@
     roster = recs.map(r => ({
       id: r.id,
       memberId: (r.fields.Member || [])[0] || null,
-      present: !!r.fields["Attendance Actual"]
+      present: !!r.fields["Attendance Actual"],
+      subIds: r.fields["Subscriptions Used"] || []
     }));
     sortRoster();
   }
@@ -335,44 +451,118 @@
   const memberById = id => members.find(m => m.id === id);
   const memberName = id => { const m = memberById(id); return m ? m.name : "(unknown member)"; };
 
-  /* ---------------- rendering ---------------- */
-  function subLine(memberId){
-    const sub = activeSubs.get(memberId);
-    if (!sub) return `<span class="flag">no active subscription</span>`;
-    const bits = [sub.type || "subscription"];
-    if (typeof sub.remaining === "number" && sub.type !== "monthly unlimited"){
-      bits.push(`${sub.remaining} left`);
+  /* ---------------- reconciliation ----------------
+     The roster rows are created ahead of the class by the Airtable automation.
+     If the singer had not paid yet at that moment the row has no subscription
+     attached, and nothing ever attaches one later — so the class is never
+     deducted. This works out, on every refresh, which rows need fixing.
+
+     Rules, deliberately conservative — a link is only rewritten when it is
+     provably wrong, never merely "not the newest":
+       missing   – no subscription on the row, member has an active one now.
+       expired   – the linked sub's End Date falls before the class date.
+       overdrawn – the linked sub has fewer than zero classes remaining, i.e.
+                   more attendance rows hang off it than it ever paid for.
+     A link to a sub that is simply used up (0 remaining) is left alone: that
+     class was legitimately spent on it, and re-pointing would hand the class
+     back and quietly resurrect the old subscription.
+  ------------------------------------------------- */
+  function reconcilePlan(entries, ctx){
+    const plan = [];
+    for (const e of entries){
+      if (!e.memberId) continue;
+      const want = ctx.activeSubs.get(e.memberId);
+      if (!want) continue;                         // nothing to attach
+      if (e.subIds.length === 0){
+        plan.push({ entryId:e.id, memberId:e.memberId, from:null, to:want.id, reason:"missing" });
+        continue;
+      }
+      if (e.subIds.length > 1) continue;           // hand-made multi-link, leave it
+      if (e.subIds[0] === want.id) continue;       // already right
+      const cur = ctx.subsById.get(e.subIds[0]);
+      if (!cur) continue;                          // unknown sub, don't touch
+      const expired   = !!cur.end && ctx.classDate > cur.end;
+      const overdrawn = cur.remaining !== null && cur.remaining < 0;
+      if (expired || overdrawn){
+        plan.push({ entryId:e.id, memberId:e.memberId, from:cur.id, to:want.id, reason: expired ? "expired" : "overdrawn" });
+      }
     }
+    return plan;
+  }
+
+  async function applyPlan(plan){
+    for (let i = 0; i < plan.length; i += 10){
+      const chunk = plan.slice(i, i+10);
+      await at(`${BASE}/${T.att}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          records: chunk.map(p => ({ id: p.entryId, fields: { "Subscriptions Used": [p.to] } }))
+        })
+      });
+    }
+  }
+
+  async function reconcile(){
+    const cls = classes.find(c => c.id === currentClassId);
+    if (!cls) return 0;
+    const plan = reconcilePlan(roster, { classDate: cls.date, subsById, activeSubs });
+    if (!plan.length) return 0;
+    await applyPlan(plan);
+    // The links changed, so Classes Remaining changed: re-read before rendering.
+    await loadSubs();
+    await loadRoster();
+    return plan.length;
+  }
+
+  /* ---------------- rendering ---------------- */
+  // Which subscription actually covers this person for this class: the one the
+  // attendance row points at, falling back to their current active sub.
+  function subForEntry(entry){
+    if (entry.subIds.length === 1){
+      const s = subsById.get(entry.subIds[0]);
+      if (s) return s;
+    }
+    return activeSubs.get(entry.memberId) || null;
+  }
+
+  function describeSub(sub){
+    if (!sub) return { text:"no subscription", warn:true };
+    const bits = [sub.type || "subscription"];
+    if (sub.remaining !== null && sub.type !== "monthly unlimited") bits.push(`${sub.remaining} left`);
     if (sub.end) bits.push(`until ${sub.end.slice(0,10)}`);
-    const low = typeof sub.remaining === "number" && sub.remaining <= 1 && sub.type !== "monthly unlimited";
-    return low ? `<span class="flag">${bits.join(" · ")}</span>` : bits.join(" · ");
+    let warn = false;
+    if (sub.payment && sub.payment !== "Paid"){ bits.push(sub.payment.toLowerCase()); warn = true; }
+    if (sub.remaining !== null && sub.remaining <= 0 && sub.type !== "monthly unlimited") warn = true;
+    if (!sub.active) warn = true;
+    return { text: bits.join(" · "), warn };
   }
 
-  function rosterRow(entry){
+  function makeRow({ label, sub, present, isAdd, onMain, onBuy }){
     const li = el("li");
-    const b = el("button", "row" + (entry.present ? " on" : ""));
-    b.type = "button";
-    b.innerHTML =
-      `<span class="box">✓</span>
-       <span class="who">
-         <span class="name"></span>
-         <span class="meta">${subLine(entry.memberId)}</span>
-       </span>`;
-    b.querySelector(".name").textContent = memberName(entry.memberId);
-    b.addEventListener("click", () => togglePresent(entry, b));
-    li.appendChild(b);
-    return li;
-  }
+    const row = el("div", "row" + (present ? " on" : "") + (isAdd ? " add" : ""));
 
-  function addRow(label, sublabel, onClick){
-    const li = el("li");
-    const b = el("button", "row add");
-    b.type = "button";
-    b.innerHTML = `<span class="box">＋</span><span class="who"><span class="name"></span><span class="meta"></span></span>`;
-    b.querySelector(".name").textContent = label;
-    b.querySelector(".meta").textContent = sublabel;
-    b.addEventListener("click", () => onClick(b));
-    li.appendChild(b);
+    const main = el("button", "rowmain");
+    main.type = "button";
+    const box = el("span", "box"); box.textContent = isAdd ? "＋" : "✓";
+    const who = el("span", "who");
+    const name = el("span", "name"); name.textContent = label;
+    const meta = el("span", "meta" + (sub.warn ? " flag" : "")); meta.textContent = sub.text;
+    who.append(name, meta);
+    main.append(box, who);
+    main.addEventListener("click", () => onMain(row));
+    row.appendChild(main);
+
+    if (onBuy){
+      const buy = el("button", "buy");
+      buy.type = "button";
+      buy.textContent = "₪";
+      buy.title = "Record a purchase";
+      buy.setAttribute("aria-label", "Record a purchase for " + label);
+      buy.addEventListener("click", e => { e.stopPropagation(); onBuy(row); });
+      row.appendChild(buy);
+    }
+
+    li.appendChild(row);
     return li;
   }
 
@@ -383,11 +573,18 @@
 
     const shown = q ? roster.filter(e => norm(memberName(e.memberId)).includes(q)) : roster;
 
-    // roster
     if (shown.length){
       if (q){ const h = el("div","section-label"); h.textContent = "On the list"; box.appendChild(h); }
       const ul = el("ul");
-      shown.forEach(e => ul.appendChild(rosterRow(e)));
+      for (const e of shown){
+        ul.appendChild(makeRow({
+          label: memberName(e.memberId),
+          sub: describeSub(subForEntry(e)),
+          present: e.present,
+          onMain: row => togglePresent(e, row),
+          onBuy: () => openBuy(e.memberId)
+        }));
+      }
       box.appendChild(ul);
     } else if (!q){
       const d = el("div","empty");
@@ -397,7 +594,6 @@
 
     if (!q) { renderFooterCount(); return; }
 
-    // members not on the roster
     const onRoster = new Set(roster.map(e => e.memberId));
     const candidates = members
       .filter(m => !onRoster.has(m.id) && norm(m.name).includes(q))
@@ -408,18 +604,26 @@
       box.appendChild(h);
       const ul = el("ul");
       for (const m of candidates){
-        const sub = activeSubs.get(m.id);
-        const meta = sub ? `${sub.type}${sub.end ? " · until " + sub.end.slice(0,10) : ""}` : (m.status ? m.status.toLowerCase() : "no active subscription");
-        ul.appendChild(addRow(m.name, meta, btn => addExisting(m, btn)));
+        ul.appendChild(makeRow({
+          label: m.name,
+          sub: describeSub(activeSubs.get(m.id) || null),
+          isAdd: true,
+          onMain: row => addExisting(m, row),
+          onBuy: () => openBuy(m.id)
+        }));
       }
       box.appendChild(ul);
     }
 
-    // brand new member
     const h2 = el("div","section-label"); h2.textContent = "Not in the CRM";
     box.appendChild(h2);
     const ul2 = el("ul");
-    ul2.appendChild(addRow(`Create “${searchTerm.trim()}”`, "new member, status Trial", () => openNewMember(searchTerm.trim())));
+    ul2.appendChild(makeRow({
+      label: `Create “${searchTerm.trim()}”`,
+      sub: { text:"new member, status Trial", warn:false },
+      isAdd: true,
+      onMain: () => openNewMember(searchTerm.trim())
+    }));
     box.appendChild(ul2);
 
     renderFooterCount();
@@ -446,7 +650,6 @@
     const t = todayISO();
     const exact = classes.find(c => c.date === t);
     if (exact) return exact.id;
-    // nearest class by absolute distance, preferring the most recent past one
     let best = null, bestDist = Infinity;
     for (const c of classes){
       const dist = Math.abs(new Date(c.date) - new Date(t));
@@ -455,11 +658,11 @@
     return best ? best.id : null;
   }
 
-  /* ---------------- actions ---------------- */
-  async function togglePresent(entry, btn){
+  /* ---------------- attendance actions ---------------- */
+  async function togglePresent(entry, row){
     const next = !entry.present;
-    btn.classList.add("busy");
-    btn.classList.toggle("on", next);
+    row.classList.add("busy");
+    row.classList.toggle("on", next);
     try {
       await at(`${BASE}/${T.att}/${entry.id}`, {
         method: "PATCH",
@@ -468,14 +671,14 @@
       entry.present = next;
       renderFooterCount();
     } catch (err){
-      btn.classList.toggle("on", entry.present);
+      row.classList.toggle("on", entry.present);
       toast(err.message, true);
     } finally {
-      btn.classList.remove("busy");
+      row.classList.remove("busy");
     }
   }
 
-  function attendancePayload(memberId){
+  function attendancePayload(memberId, subId){
     const cls = classes.find(c => c.id === currentClassId);
     const fields = {
       "Member": [memberId],
@@ -483,32 +686,39 @@
       "Class Date": cls.date,
       "Attendance Actual": true
     };
-    const sub = activeSubs.get(memberId);
+    const sub = subId ? { id: subId } : activeSubs.get(memberId);
     if (sub) fields["Subscriptions Used"] = [sub.id];
     return { fields };
   }
 
-  async function createAttendance(memberId){
+  async function createAttendance(memberId, subId){
     const j = await at(`${BASE}/${T.att}`, {
       method: "POST",
-      body: JSON.stringify({ records: [ attendancePayload(memberId) ], typecast: true })
+      body: JSON.stringify({ records: [ attendancePayload(memberId, subId) ], typecast: true })
     });
     const rec = j.records[0];
     const cls = classes.find(c => c.id === currentClassId);
     cls.attIds.push(rec.id);
-    roster.push({ id: rec.id, memberId, present: true });
+    const entry = {
+      id: rec.id,
+      memberId,
+      present: true,
+      subIds: (rec.fields && rec.fields["Subscriptions Used"]) || (subId ? [subId] : (activeSubs.has(memberId) ? [activeSubs.get(memberId).id] : []))
+    };
+    roster.push(entry);
     sortRoster();
+    return entry;
   }
 
-  async function addExisting(m, btn){
-    btn.classList.add("busy");
+  async function addExisting(m, row){
+    row.classList.add("busy");
     try {
       await createAttendance(m.id);
       $("#search").value = ""; searchTerm = "";
       render();
       toast(`${m.name} marked present`);
     } catch (err){
-      btn.classList.remove("busy");
+      row.classList.remove("busy");
       toast(err.message, true);
     }
   }
@@ -534,27 +744,145 @@
     members.push({ id: rec.id, name, phone, status: "Trial" });
     members.sort((a,b)=>a.name.localeCompare(b.name));
     await createAttendance(rec.id);
+    return rec.id;
+  }
+
+  /* ---------------- purchases ---------------- */
+  let buyState = { memberId:null, product:PRODUCTS[1], status:"Paid", start:null, end:null, endTouched:false };
+
+  // A purchase only lands on a roster when the class on screen is actually
+  // happening today. Selling someone a subscription while reviewing last
+  // Thursday's register must not mark them present at last Thursday's class.
+  function classIsToday(){
+    const cls = classes.find(c => c.id === currentClassId);
+    return !!cls && cls.date === todayISO();
+  }
+
+  function subscriptionPayload({ memberId, product, startISO, endISO, amount, status }){
+    const fields = {
+      "Name": memberName(memberId),
+      "Subscription Type": product.type,
+      "Start date": startISO,
+      "End Date": endISO,
+      "Payment Status": status,
+      "Member": [memberId]
+    };
+    if (product.classes !== null) fields["Classes Included"] = product.classes;
+    if (amount !== null && amount !== undefined && amount !== "") fields["Amount"] = Number(amount);
+    return { fields };
+  }
+
+  function renderBuy(){
+    $("#buyWho").textContent = memberName(buyState.memberId);
+    const cur = activeSubs.get(buyState.memberId);
+    $("#buyCurrent").textContent = cur
+      ? "Currently: " + describeSub(cur).text
+      : "No active subscription.";
+
+    const box = $("#buyProducts");
+    box.innerHTML = "";
+    for (const p of PRODUCTS){
+      const b = el("button", "product" + (p.key === buyState.product.key ? " sel" : ""));
+      b.type = "button";
+      b.dataset.product = p.key;
+      const t = el("b"); t.textContent = p.label;
+      const s = el("i"); s.textContent = `${priceFor(p)} ₪ · ` + (p.classes === null ? "unlimited" : `${p.classes} class${p.classes>1?"es":""}`);
+      b.append(t, s);
+      b.addEventListener("click", () => {
+        buyState.product = p;
+        $("#buyAmount").value = priceFor(p);
+        renderBuy();
+      });
+      box.appendChild(b);
+    }
+
+    for (const b of document.querySelectorAll("#buyStatus .seg")){
+      b.classList.toggle("sel", b.dataset.status === buyState.status);
+    }
+
+    $("#buyStart").value = buyState.start;
+    $("#buyEnd").value = buyState.end;
+
+    const onRoster = roster.some(e => e.memberId === buyState.memberId);
+    $("#buyTerms").textContent = classIsToday()
+      ? (onRoster ? "Marks them present at today's class." : "Adds them to today's class, marked present.")
+      : "Today has no class selected, so attendance is not touched — only the subscription is recorded.";
+  }
+
+  function openBuy(memberId){
+    const start = todayISO();
+    buyState = { memberId, product: PRODUCTS[1], status:"Paid", start, end: defaultEndDate(start), endTouched:false };
+    $("#buyAmount").value = priceFor(buyState.product);
+    renderBuy();
+    $("#buyDlg").showModal();
+  }
+
+  async function recordPurchase(){
+    const memberId = buyState.memberId;
+
+    const j = await at(`${BASE}/${T.subs}`, {
+      method: "POST",
+      body: JSON.stringify({
+        records: [ subscriptionPayload({
+          memberId,
+          product: buyState.product,
+          startISO: buyState.start,
+          endISO: buyState.end,
+          amount: $("#buyAmount").value,
+          status: buyState.status
+        }) ],
+        typecast: true
+      })
+    });
+    const subId = j.records[0].id;
+
+    // Attendance is only touched when the class on screen is today's.
+    let marked = false;
+    if (classIsToday()){
+      const existing = roster.find(e => e.memberId === memberId);
+      if (existing){
+        await at(`${BASE}/${T.att}/${existing.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ fields: { "Subscriptions Used": [subId], "Attendance Actual": true } })
+        });
+        existing.subIds = [subId];
+        existing.present = true;
+      } else {
+        await createAttendance(memberId, subId);
+      }
+      marked = true;
+    }
+
+    await loadSubs();          // pick up the new sub + recomputed Classes Remaining
+    return { subId, marked };
   }
 
   /* ---------------- boot ---------------- */
   async function refreshAll(keepClass){
     $("#loading").classList.remove("hidden");
     $("#lists").innerHTML = "";
+    $("#refresh").classList.add("spinning");
     try {
-      await Promise.all([loadClasses(), loadPeople()]);
+      await Promise.all([loadClasses(), loadMembers(), loadSubs(), loadPrices()]);
       if (!classes.length){ $("#loading").textContent = "No classes in the base."; return; }
       if (!keepClass || !classes.some(c => c.id === currentClassId)) currentClassId = pickDefaultClass();
       renderClassPicker();
       await loadRoster();
+      const fixed = await reconcile();
       $("#loading").classList.add("hidden");
       render();
+      if (fixed) toast(fixed === 1 ? "1 subscription re-linked" : `${fixed} subscriptions re-linked`);
     } catch (err){
       $("#loading").classList.add("hidden");
       if (err.status === 401 || err.status === 403){
         showSetup("That token was rejected (" + err.message + ").\nCheck the scopes and that the token has access to the Choir CRM base.");
       } else {
-        $("#lists").innerHTML = `<div class="empty">${err.message}</div>`;
+        $("#lists").innerHTML = "";
+        const d = el("div","empty"); d.textContent = err.message;
+        $("#lists").appendChild(d);
       }
+    } finally {
+      $("#refresh").classList.remove("spinning");
     }
   }
 
@@ -600,7 +928,11 @@
     currentClassId = e.target.value;
     $("#search").value = ""; searchTerm = "";
     $("#loading").classList.remove("hidden"); $("#lists").innerHTML = "";
-    try { await loadRoster(); } catch(err){ toast(err.message, true); }
+    try {
+      await loadRoster();
+      const fixed = await reconcile();
+      if (fixed) toast(fixed === 1 ? "1 subscription re-linked" : `${fixed} subscriptions re-linked`);
+    } catch(err){ toast(err.message, true); }
     $("#loading").classList.add("hidden");
     render();
   });
@@ -631,11 +963,52 @@
     }
   });
 
+  $("#buyCancel").addEventListener("click", () => $("#buyDlg").close());
+  for (const b of document.querySelectorAll("#buyStatus .seg")){
+    b.addEventListener("click", () => { buyState.status = b.dataset.status; renderBuy(); });
+  }
+  $("#buyStart").addEventListener("change", e => {
+    buyState.start = e.target.value;
+    // The end date follows the start until the manager sets one by hand.
+    if (!buyState.endTouched && buyState.start) buyState.end = defaultEndDate(buyState.start);
+    renderBuy();
+  });
+  $("#buyEnd").addEventListener("change", e => {
+    buyState.end = e.target.value;
+    buyState.endTouched = true;
+  });
+  $("#buyForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const name = memberName(buyState.memberId);
+    const label = buyState.product.label;
+    if (!buyState.start || !buyState.end){ toast("Set both dates first.", true); return; }
+    if (buyState.end < buyState.start){ toast("The end date is before the start date.", true); return; }
+    $("#buySubmit").disabled = true;
+    try {
+      const { marked } = await recordPurchase();
+      $("#buyDlg").close();
+      $("#search").value = ""; searchTerm = "";
+      render();
+      toast(marked ? `${label} recorded — ${name} marked present` : `${label} recorded for ${name}`);
+    } catch (err){
+      toast(err.message, true);
+    } finally {
+      $("#buySubmit").disabled = false;
+    }
+  });
+
   $("#forget").addEventListener("click", () => {
     if (!confirm("Remove the saved Airtable token from this device?")) return;
     writeToken(""); token = "";
     showSetup("");
   });
+
+  // Exposed for the test harness only.
+  window.__choir = {
+    PRODUCTS, reconcilePlan, parseRemaining, defaultEndDate, addMonths, addDays, classIsToday,
+    subscriptionPayload, attendancePayload, describeSub,
+    state: () => ({ classes, currentClassId, roster, members, subsById, activeSubs, prices })
+  };
 
   token = readToken();
   if (token){ showApp(); refreshAll(false); } else { showSetup(""); }
