@@ -56,6 +56,13 @@
   .search:focus{outline:2px solid var(--accent);outline-offset:-1px}
   .iconbtn{color:var(--muted);padding:8px;border-radius:8px;font-size:20px;line-height:1}
   .iconbtn.spinning{animation:s .7s linear infinite}
+  .newclass{
+    flex:0 0 auto;background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:9px 10px;font-size:13.5px;font-weight:600;color:var(--accent);white-space:nowrap;
+  }
+  .newclass:active{background:var(--ok-bg)}
+  .newclass[disabled]{opacity:.5;pointer-events:none}
+  .createtoday{margin:4px 0 12px}
 
   /* ---------- rows ---------- */
   .section-label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 4px 6px}
@@ -170,6 +177,7 @@
     <div class="hrow">
       <select class="classpick" id="classPick" aria-label="Class"></select>
       <span class="counter" id="counter">—</span>
+      <button class="newclass" id="newClass" title="Create today's class" aria-label="Create today's class">＋ Class</button>
       <button class="iconbtn" id="refresh" title="Reload" aria-label="Reload">⟳</button>
     </div>
     <div class="searchrow">
@@ -573,6 +581,16 @@
 
     const shown = q ? roster.filter(e => norm(memberName(e.memberId)).includes(q)) : roster;
 
+    // No class for today yet: offer the one-tap way to make it.
+    if (!q && !classes.some(c => c.date === todayISO())){
+      const b = el("button", "primary createtoday");
+      b.type = "button";
+      b.id = "createTodayBig";
+      b.textContent = "Create today’s class";
+      b.addEventListener("click", createTodayClass);
+      box.appendChild(b);
+    }
+
     if (shown.length){
       if (q){ const h = el("div","section-label"); h.textContent = "On the list"; box.appendChild(h); }
       const ul = el("ul");
@@ -656,6 +674,70 @@
       if (dist < bestDist){ bestDist = dist; best = c; }
     }
     return best ? best.id : null;
+  }
+
+  /* ---------------- create class ----------------
+     Creating a Classes record is all it takes: the Airtable automation
+     "Generate class roster" fires on record creation and builds the
+     attendance rows the usual way. That runs on Airtable's side a few
+     seconds later, so we poll the new class until its Attendance links
+     appear and stop changing, then show it.
+  ------------------------------------------------ */
+  const ROSTER_POLL_MS = 2000;
+  const ROSTER_POLL_MAX = 15;   // ~30 s
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  function classPayload(dateISO){
+    return { fields: { "Date": dateISO, "Status": "Scheduled" } };
+  }
+
+  async function waitForRoster(classId){
+    let last = -1;
+    for (let i = 0; i < ROSTER_POLL_MAX; i++){
+      await sleep(ROSTER_POLL_MS);
+      const j = await at(`${BASE}/${T.classes}/${classId}`);
+      const n = ((j.fields && j.fields.Attendance) || []).length;
+      if (n > 0 && n === last) return n;   // non-empty and settled
+      last = n;
+    }
+    return Math.max(last, 0);
+  }
+
+  let creatingClass = false;
+  async function createTodayClass(){
+    if (creatingClass) return;
+    const t = todayISO();
+    if (classes.some(c => c.date === t && c.status !== "Cancelled")){
+      if (!confirm("There is already a class today. Create another one anyway?")) return;
+    }
+    creatingClass = true;
+    $("#newClass").disabled = true;
+    $("#search").value = ""; searchTerm = "";
+    $("#lists").innerHTML = "";
+    const ld = $("#loading");
+    ld.innerHTML = '<span class="spin"></span> Creating today’s class and building the roster…';
+    ld.classList.remove("hidden");
+    try {
+      const j = await at(`${BASE}/${T.classes}`, {
+        method: "POST",
+        body: JSON.stringify({ records: [ classPayload(t) ], typecast: true })
+      });
+      const newId = j.records[0].id;
+      const n = await waitForRoster(newId);
+      currentClassId = newId;
+      ld.innerHTML = '<span class="spin"></span> Loading…';
+      await refreshAll(true);
+      toast(n ? `Today’s class created · ${n} on the roster`
+              : "Class created — roster still empty. Tap ⟳ in a moment.");
+    } catch (err){
+      ld.innerHTML = '<span class="spin"></span> Loading…';
+      ld.classList.add("hidden");
+      render();
+      toast(err.message, true);
+    } finally {
+      creatingClass = false;
+      $("#newClass").disabled = false;
+    }
   }
 
   /* ---------------- attendance actions ---------------- */
@@ -938,6 +1020,7 @@
   });
 
   $("#refresh").addEventListener("click", () => refreshAll(true));
+  $("#newClass").addEventListener("click", createTodayClass);
 
   let searchTimer;
   $("#search").addEventListener("input", e => {
@@ -1006,7 +1089,7 @@
   // Exposed for the test harness only.
   window.__choir = {
     PRODUCTS, reconcilePlan, parseRemaining, defaultEndDate, addMonths, addDays, classIsToday,
-    subscriptionPayload, attendancePayload, describeSub,
+    subscriptionPayload, attendancePayload, describeSub, classPayload,
     state: () => ({ classes, currentClassId, roster, members, subsById, activeSubs, prices })
   };
 
