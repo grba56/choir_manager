@@ -149,6 +149,21 @@
   }
   .toast.bad{background:var(--danger);color:#fff}
   .hidden{display:none !important}
+
+  /* ---------- tabs + expenses ---------- */
+  .tabs{display:flex;gap:6px;max-width:640px;margin:0 auto;padding:10px 12px 0}
+  .tab{
+    flex:1;padding:9px 8px;border-radius:10px;border:1px solid var(--line);
+    background:var(--card);color:var(--muted);font-size:14px;font-weight:600;text-align:center;
+  }
+  .tab.sel{border-color:var(--accent);background:var(--ok-bg);color:var(--ink)}
+  .exppanel{margin-top:12px}
+  .field textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit;color:inherit;resize:vertical;min-height:44px}
+  .chiplabel{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .chip{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:14px}
+  .chip.sel{border-color:var(--accent);background:var(--ok-bg);font-weight:600}
+  .fixedacct{font-size:12.5px;color:var(--muted);margin:-2px 0 14px}
   .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px}
   @keyframes s{to{transform:rotate(360deg)}}
 </style>
@@ -173,6 +188,13 @@
 
 <!-- ============ APP ============ -->
 <div id="app" class="hidden">
+  <nav class="tabs" id="tabs">
+    <button type="button" class="tab sel" data-view="att">Attendance</button>
+    <button type="button" class="tab" data-view="exp">Expenses</button>
+  </nav>
+
+  <!-- ===== view: attendance + subscriptions ===== -->
+  <div id="viewAtt">
   <header>
     <div class="hrow">
       <select class="classpick" id="classPick" aria-label="Class"></select>
@@ -189,6 +211,27 @@
     <div id="loading" class="empty"><span class="spin"></span> Loading…</div>
     <div id="lists"></div>
     <button class="ghost" id="forget" style="margin-top:28px">Disconnect this device</button>
+  </div>
+  </div>
+
+  <!-- ===== view: expenses ===== -->
+  <div id="viewExp" class="hidden">
+    <div class="wrap">
+      <form class="panel exppanel" id="expForm" novalidate>
+        <div class="daterow">
+          <label class="field"><span>Amount (₪)</span><input id="expAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></label>
+          <label class="field"><span>Date</span><input id="expDate" type="date"></label>
+        </div>
+        <span class="chiplabel">Category</span>
+        <div class="chips" id="expCategory"></div>
+        <span class="chiplabel">Group</span>
+        <div class="chips" id="expGroup"></div>
+        <label class="field"><span>Note (optional)</span><textarea id="expNote" rows="1" placeholder="Who or what it was for"></textarea></label>
+        <div class="fixedacct">Paid from the <b>Choir</b> account.</div>
+        <button type="submit" class="primary" id="expSubmit">Record expense</button>
+      </form>
+      <div class="err" id="expErr"></div>
+    </div>
   </div>
 </div>
 
@@ -243,6 +286,17 @@
     att:      "tblafaWm2tx9fA19T",
     classes:  "tblpZacp8qjKIanky",
     price:    "tblv64zRVUxwsIVvD",
+    expenses: "tblQ126gZaobRUNhi",
+  };
+  // Every expense recorded here is paid from the Choir account. Not selectable.
+  const CHOIR_ACCOUNT = "recJDPJHocrbClpWM";
+  const LS_VIEW = "choir.att.view";
+  // Category and Group choices are read live from the Expenses table's schema,
+  // so options added in Airtable show up here. These lists are only used if
+  // that read fails.
+  const EXP_FALLBACK = {
+    Category: ["Salary","Rent","Services","Utility","Contractor","Equipment","Marketing","Acquiring fee"],
+    Group:    ["Choir (general)","Tel Aviv 1","Tel Aviv 2","Haifa 1"],
   };
   const API = "https://api.airtable.com/v0/";
   const LS_TOKEN = "choir.att.token";
@@ -954,6 +1008,129 @@
     return { subId, marked };
   }
 
+  /* ================= EXPENSES =================
+     Self-contained: uses only at(), toast(), el(), $ and todayISO() from above.
+     Data entry only: writes one row to Expenses per submit; never reads,
+     edits or deletes expense rows. */
+  let expOpts = { Category: [], Group: [] };
+  let expState = { category: null, group: null };
+  let currentView = "att";
+
+  function expensePayload({ dateISO, amount, category, group, note }){
+    const fields = {
+      "Date": dateISO,
+      "Amount": Number(amount),
+      "Category": category,
+      "Group": group,
+      "Paid from": [CHOIR_ACCOUNT]
+    };
+    const n = (note || "").trim();
+    if (n) fields["Notes"] = n;
+    return { fields };
+  }
+
+  // Returns the first problem with the form, or "" when it can be saved.
+  function expenseProblem({ dateISO, amount, category, group }){
+    const a = Number(amount);
+    if (amount === "" || amount === null || amount === undefined || !Number.isFinite(a) || a <= 0) return "Enter the amount.";
+    if (!dateISO) return "Set the date.";
+    if (!category) return "Choose a category.";
+    if (!group) return "Choose a group, or Choir (general).";
+    return "";
+  }
+
+  async function loadExpenseOptions(){
+    let fields = [];
+    try {
+      const j = await at(`meta/bases/${BASE}/tables`);
+      const t = (j.tables || []).find(t => t.id === T.expenses);
+      fields = (t && t.fields) || [];
+    } catch (err){
+      if (err.status === 401) throw err;      // bad token: let the caller show setup
+    }
+    for (const k of ["Category","Group"]){
+      const f = fields.find(f => f.name === k);
+      const names = f && f.options && Array.isArray(f.options.choices) ? f.options.choices.map(c => c.name) : [];
+      expOpts[k] = names.length ? names : EXP_FALLBACK[k];
+    }
+  }
+
+  function renderExpenseChips(){
+    for (const [boxId, key, stateKey] of [["#expCategory","Category","category"],["#expGroup","Group","group"]]){
+      const box = $(boxId);
+      box.innerHTML = "";
+      for (const name of expOpts[key]){
+        const b = el("button", "chip" + (expState[stateKey] === name ? " sel" : ""));
+        b.type = "button";
+        b.textContent = name;
+        b.addEventListener("click", () => { expState[stateKey] = name; renderExpenseChips(); });
+        box.appendChild(b);
+      }
+    }
+  }
+
+  function resetExpenseForm(){
+    expState = { category: null, group: null };
+    $("#expAmount").value = "";
+    $("#expNote").value = "";
+    if (!$("#expDate").value) $("#expDate").value = todayISO();
+    renderExpenseChips();
+  }
+
+  async function openExpenses(){
+    if (!$("#expDate").value) $("#expDate").value = todayISO();
+    try {
+      $("#expErr").textContent = "";
+      if (!expOpts.Category.length) { await loadExpenseOptions(); renderExpenseChips(); }
+    } catch (err){
+      if (err.status === 401 || err.status === 403){
+        showSetup("That token was rejected (" + err.message + ").\nCheck the scopes and that the token has access to the Choir CRM base.");
+      } else {
+        $("#expErr").textContent = err.message;
+      }
+    }
+  }
+
+  function setView(v){
+    currentView = v === "exp" ? "exp" : "att";
+    $("#viewAtt").classList.toggle("hidden", currentView !== "att");
+    $("#viewExp").classList.toggle("hidden", currentView !== "exp");
+    for (const b of document.querySelectorAll("#tabs .tab")) b.classList.toggle("sel", b.dataset.view === currentView);
+    try { localStorage.setItem(LS_VIEW, currentView); } catch(_){}
+    if (currentView === "exp" && token) openExpenses();
+  }
+
+  for (const b of document.querySelectorAll("#tabs .tab")){
+    b.addEventListener("click", () => setView(b.dataset.view));
+  }
+
+  $("#expForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const data = {
+      dateISO: $("#expDate").value,
+      amount: $("#expAmount").value,
+      category: expState.category,
+      group: expState.group,
+      note: $("#expNote").value
+    };
+    const problem = expenseProblem(data);
+    if (problem){ toast(problem, true); return; }
+    $("#expSubmit").disabled = true;
+    try {
+      // No typecast: an unknown category or group must fail, not create a new option.
+      await at(`${BASE}/${T.expenses}`, {
+        method: "POST",
+        body: JSON.stringify({ records: [ expensePayload(data) ] })
+      });
+      toast(`Expense recorded — ${Number(data.amount).toLocaleString()} ₪ · ${data.category}`);
+      resetExpenseForm();
+    } catch (err){
+      toast(err.message, true);
+    } finally {
+      $("#expSubmit").disabled = false;
+    }
+  });
+
   /* ---------------- boot ---------------- */
   async function refreshAll(keepClass){
     $("#loading").classList.remove("hidden");
@@ -1014,6 +1191,7 @@
       $("#setupErr").textContent = "";
       showApp();
       refreshAll(false);
+      setView(currentView);
     } catch (err){
       $("#setupErr").textContent = err.message;
     }
@@ -1109,11 +1287,14 @@
   window.__choir = {
     PRODUCTS, reconcilePlan, parseRemaining, defaultEndDate, addMonths, addDays, classIsToday,
     subscriptionPayload, attendancePayload, describeSub, classPayload,
+    expensePayload, expenseProblem,
     state: () => ({ classes, currentClassId, roster, members, subsById, activeSubs, prices })
   };
 
   token = readToken();
-  if (token){ showApp(); refreshAll(false); } else { showSetup(""); }
+  let savedView = "att";
+  try { savedView = localStorage.getItem(LS_VIEW) || "att"; } catch(_){}
+  if (token){ showApp(); refreshAll(false); setView(savedView); } else { showSetup(""); }
 })();
 </script>
 </body>
