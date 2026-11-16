@@ -219,6 +219,10 @@
       <button type="button" class="seg sel" data-status="Paid">Paid</button>
       <button type="button" class="seg" data-status="Pending">Pending</button>
     </div>
+    <div class="segrow" id="buyMethod">
+      <button type="button" class="seg" data-method="bit">Bit</button>
+      <button type="button" class="seg" data-method="cash">Cash</button>
+    </div>
     <div class="terms" id="buyTerms"></div>
     <div class="dlgbtns">
       <button type="button" class="cancel" id="buyCancel">Cancel</button>
@@ -311,7 +315,9 @@
   function toast(msg, bad){
     document.querySelectorAll(".toast").forEach(t=>t.remove());
     const t = el("div","toast" + (bad ? " bad" : "")); t.textContent = msg;
-    document.body.appendChild(t);
+    // An open modal <dialog> sits in the top layer and would cover a toast on
+    // <body>, so the message goes inside the dialog while one is open.
+    (document.querySelector("dialog[open]") || document.body).appendChild(t);
     clearTimeout(toastTimer);
     toastTimer = setTimeout(()=>t.remove(), bad ? 6000 : 2600);
   }
@@ -830,7 +836,9 @@
   }
 
   /* ---------------- purchases ---------------- */
-  let buyState = { memberId:null, product:PRODUCTS[1], status:"Paid", start:null, end:null, endTouched:false };
+  // method: "bit" | "cash" | null. No default on purpose — the manager must say
+  // how the money arrived. Only asked for (and only written) when status is Paid.
+  let buyState = { memberId:null, product:PRODUCTS[1], status:"Paid", method:null, start:null, end:null, endTouched:false };
 
   // A purchase only lands on a roster when the class on screen is actually
   // happening today. Selling someone a subscription while reviewing last
@@ -840,7 +848,7 @@
     return !!cls && cls.date === todayISO();
   }
 
-  function subscriptionPayload({ memberId, product, startISO, endISO, amount, status }){
+  function subscriptionPayload({ memberId, product, startISO, endISO, amount, status, method }){
     const fields = {
       "Name": memberName(memberId),
       "Subscription Type": product.type,
@@ -851,6 +859,8 @@
     };
     if (product.classes !== null) fields["Classes Included"] = product.classes;
     if (amount !== null && amount !== undefined && amount !== "") fields["Amount"] = Number(amount);
+    // Option names must match the Airtable choices exactly ("bit" / "cash").
+    if (status === "Paid" && (method === "bit" || method === "cash")) fields["Payment Method"] = method;
     return { fields };
   }
 
@@ -881,6 +891,10 @@
     for (const b of document.querySelectorAll("#buyStatus .seg")){
       b.classList.toggle("sel", b.dataset.status === buyState.status);
     }
+    $("#buyMethod").classList.toggle("hidden", buyState.status !== "Paid");
+    for (const b of document.querySelectorAll("#buyMethod .seg")){
+      b.classList.toggle("sel", b.dataset.method === buyState.method);
+    }
 
     $("#buyStart").value = buyState.start;
     $("#buyEnd").value = buyState.end;
@@ -893,7 +907,7 @@
 
   function openBuy(memberId){
     const start = todayISO();
-    buyState = { memberId, product: PRODUCTS[1], status:"Paid", start, end: defaultEndDate(start), endTouched:false };
+    buyState = { memberId, product: PRODUCTS[1], status:"Paid", method:null, start, end: defaultEndDate(start), endTouched:false };
     $("#buyAmount").value = priceFor(buyState.product);
     renderBuy();
     $("#buyDlg").showModal();
@@ -911,7 +925,8 @@
           startISO: buyState.start,
           endISO: buyState.end,
           amount: $("#buyAmount").value,
-          status: buyState.status
+          status: buyState.status,
+          method: buyState.method
         }) ],
         typecast: true
       })
@@ -1050,6 +1065,9 @@
   for (const b of document.querySelectorAll("#buyStatus .seg")){
     b.addEventListener("click", () => { buyState.status = b.dataset.status; renderBuy(); });
   }
+  for (const b of document.querySelectorAll("#buyMethod .seg")){
+    b.addEventListener("click", () => { buyState.method = b.dataset.method; renderBuy(); });
+  }
   $("#buyStart").addEventListener("change", e => {
     buyState.start = e.target.value;
     // The end date follows the start until the manager sets one by hand.
@@ -1066,6 +1084,7 @@
     const label = buyState.product.label;
     if (!buyState.start || !buyState.end){ toast("Set both dates first.", true); return; }
     if (buyState.end < buyState.start){ toast("The end date is before the start date.", true); return; }
+    if (buyState.status === "Paid" && !buyState.method){ toast("Choose how it was paid: Bit or Cash.", true); return; }
     $("#buySubmit").disabled = true;
     try {
       const { marked } = await recordPurchase();
