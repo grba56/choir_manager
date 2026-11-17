@@ -163,6 +163,8 @@
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
   .chip{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:14px}
   .chip.sel{border-color:var(--accent);background:var(--ok-bg);font-weight:600}
+  .chip.add{border-style:dashed;color:var(--accent)}
+  .newopt{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin:-4px 0 12px}
   .fixedacct{font-size:12.5px;color:var(--muted);margin:-2px 0 14px}
   .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px}
   @keyframes s{to{transform:rotate(360deg)}}
@@ -244,6 +246,24 @@
     <div class="dlgbtns">
       <button type="button" class="cancel" id="nmCancel">Cancel</button>
       <button type="submit" class="primary">Add &amp; mark present</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="classDlg">
+  <form class="dlg" method="dialog" id="classForm" novalidate>
+    <h3>New class</h3>
+    <p id="ncDate"></p>
+    <span class="chiplabel">Location</span>
+    <div class="chips" id="ncLocation"></div>
+    <input class="newopt hidden" id="ncLocationNew" placeholder="New location" autocomplete="off">
+    <span class="chiplabel">Coach</span>
+    <div class="chips" id="ncCoach"></div>
+    <input class="newopt hidden" id="ncCoachNew" placeholder="New coach" autocomplete="off">
+    <div class="err" id="ncErr"></div>
+    <div class="dlgbtns">
+      <button type="button" class="cancel" id="ncCancel">Cancel</button>
+      <button type="submit" class="primary" id="ncSubmit">Create class</button>
     </div>
   </form>
 </dialog>
@@ -418,7 +438,7 @@
   /* ---------------- data loading ---------------- */
   async function loadClasses(){
     const recs = await listAll(T.classes, {
-      "fields[]": ["Date", "Status", "Attendance"],
+      "fields[]": ["Date", "Status", "Attendance", "Location", "Coach"],
       "sort[0][field]": "Date",
       "sort[0][direction]": "desc",
       pageSize: 100
@@ -429,6 +449,8 @@
         id: r.id,
         date: r.fields.Date.slice(0,10),
         status: r.fields.Status || "",
+        location: r.fields.Location || "",
+        coach: r.fields.Coach || "",
         attIds: r.fields.Attendance || []
       }));
   }
@@ -647,7 +669,7 @@
       b.type = "button";
       b.id = "createTodayBig";
       b.textContent = "Create today’s class";
-      b.addEventListener("click", createTodayClass);
+      b.addEventListener("click", openClassDialog);
       box.appendChild(b);
     }
 
@@ -718,7 +740,7 @@
     for (const c of classes.slice(0, 40)){
       const o = el("option");
       o.value = c.id;
-      o.textContent = fmtDate(c.date) + (c.status === "Cancelled" ? " · cancelled" : "");
+      o.textContent = fmtDate(c.date) + (c.location ? " · " + c.location : "") + (c.status === "Cancelled" ? " · cancelled" : "");
       sel.appendChild(o);
     }
     sel.value = currentClassId;
@@ -747,8 +769,103 @@
   const ROSTER_POLL_MAX = 15;   // ~30 s
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-  function classPayload(dateISO){
-    return { fields: { "Date": dateISO, "Status": "Scheduled" } };
+  function classPayload(dateISO, location, coach){
+    const fields = { "Date": dateISO, "Status": "Scheduled" };
+    if (location) fields["Location"] = location;
+    if (coach) fields["Coach"] = coach;
+    return { fields };
+  }
+
+  /* Location and Coach are single-select fields on Classes. The choices are
+     read live from the table schema each time the dialog opens, merged with
+     whatever values existing classes already carry (covers a failed schema
+     read). A brand-new name is sent as plain text: the POST uses
+     typecast:true, so Airtable adds it as a new option on the spot. */
+  const CLASS_OPT_FIELDS = ["Location", "Coach"];
+  const NEW_OPT = "\u0000new";
+  let classOpts = { Location: [], Coach: [] };
+  let classPick = { Location: null, Coach: null };
+
+  // Case-insensitive de-dupe that keeps the first spelling seen.
+  function mergeOptions(...lists){
+    const seen = new Set(), out = [];
+    for (const name of lists.flat()){
+      const v = (name || "").trim();
+      if (!v || seen.has(v.toLowerCase())) continue;
+      seen.add(v.toLowerCase()); out.push(v);
+    }
+    return out;
+  }
+
+  // What will be written for one field: the picked chip, or the typed new
+  // name (snapped to an existing option when it only differs by case).
+  function resolveClassChoice(pick, typed, options){
+    if (pick !== NEW_OPT) return pick || "";
+    const v = (typed || "").trim().replace(/\s+/g, " ");
+    if (!v) return "";
+    return options.find(o => o.toLowerCase() === v.toLowerCase()) || v;
+  }
+
+  function newClassProblem({ location, coach }){
+    if (!location) return "Choose a location.";
+    if (!coach) return "Choose a coach.";
+    return "";
+  }
+
+  async function loadClassOptions(){
+    let fields = [];
+    try {
+      const j = await at(`meta/bases/${BASE}/tables`);
+      const t = (j.tables || []).find(t => t.id === T.classes);
+      fields = (t && t.fields) || [];
+    } catch (err){
+      if (err.status === 401) throw err;
+    }
+    for (const k of CLASS_OPT_FIELDS){
+      const f = fields.find(f => f.name === k);
+      const names = f && f.options && Array.isArray(f.options.choices) ? f.options.choices.map(c => c.name) : [];
+      classOpts[k] = mergeOptions(names, classes.map(c => c[k.toLowerCase()]));
+    }
+  }
+
+  function renderClassChips(){
+    for (const k of CLASS_OPT_FIELDS){
+      const box = $("#nc" + k), input = $("#nc" + k + "New");
+      box.innerHTML = "";
+      for (const name of classOpts[k]){
+        const b = el("button", "chip" + (classPick[k] === name ? " sel" : ""));
+        b.type = "button";
+        b.textContent = name;
+        b.addEventListener("click", () => { classPick[k] = name; renderClassChips(); });
+        box.appendChild(b);
+      }
+      const add = el("button", "chip add" + (classPick[k] === NEW_OPT ? " sel" : ""));
+      add.type = "button";
+      add.textContent = "＋ New";
+      add.addEventListener("click", () => { classPick[k] = NEW_OPT; renderClassChips(); input.focus(); });
+      box.appendChild(add);
+      input.classList.toggle("hidden", classPick[k] !== NEW_OPT);
+    }
+  }
+
+  async function openClassDialog(){
+    if (creatingClass) return;
+    const t = todayISO();
+    if (classes.some(c => c.date === t && c.status !== "Cancelled")){
+      if (!confirm("There is already a class today. Create another one anyway?")) return;
+    }
+    $("#newClass").disabled = true;
+    try { await loadClassOptions(); }
+    catch (err){ toast(err.message, true); return; }
+    finally { $("#newClass").disabled = false; }
+    // Nothing to choose from yet: go straight to typing a new one.
+    classPick = { Location: classOpts.Location.length ? null : NEW_OPT,
+                  Coach:    classOpts.Coach.length    ? null : NEW_OPT };
+    $("#ncLocationNew").value = ""; $("#ncCoachNew").value = "";
+    $("#ncErr").textContent = "";
+    $("#ncDate").textContent = fmtDate(t);
+    renderClassChips();
+    $("#classDlg").showModal();
   }
 
   async function waitForRoster(classId){
@@ -764,12 +881,9 @@
   }
 
   let creatingClass = false;
-  async function createTodayClass(){
+  async function createTodayClass(location, coach){
     if (creatingClass) return;
     const t = todayISO();
-    if (classes.some(c => c.date === t && c.status !== "Cancelled")){
-      if (!confirm("There is already a class today. Create another one anyway?")) return;
-    }
     creatingClass = true;
     $("#newClass").disabled = true;
     $("#search").value = ""; searchTerm = "";
@@ -780,7 +894,7 @@
     try {
       const j = await at(`${BASE}/${T.classes}`, {
         method: "POST",
-        body: JSON.stringify({ records: [ classPayload(t) ], typecast: true })
+        body: JSON.stringify({ records: [ classPayload(t, location, coach) ], typecast: true })
       });
       const newId = j.records[0].id;
       const n = await waitForRoster(newId);
@@ -1213,7 +1327,17 @@
   });
 
   $("#refresh").addEventListener("click", () => refreshAll(true));
-  $("#newClass").addEventListener("click", createTodayClass);
+  $("#newClass").addEventListener("click", openClassDialog);
+  $("#ncCancel").addEventListener("click", () => $("#classDlg").close());
+  $("#classForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const location = resolveClassChoice(classPick.Location, $("#ncLocationNew").value, classOpts.Location);
+    const coach    = resolveClassChoice(classPick.Coach,    $("#ncCoachNew").value,    classOpts.Coach);
+    const problem = newClassProblem({ location, coach });
+    if (problem){ $("#ncErr").textContent = problem; return; }
+    $("#classDlg").close();
+    createTodayClass(location, coach);
+  });
 
   let searchTimer;
   $("#search").addEventListener("input", e => {
@@ -1288,6 +1412,7 @@
     PRODUCTS, reconcilePlan, parseRemaining, defaultEndDate, addMonths, addDays, classIsToday,
     subscriptionPayload, attendancePayload, describeSub, classPayload,
     expensePayload, expenseProblem,
+    mergeOptions, resolveClassChoice, newClassProblem,
     state: () => ({ classes, currentClassId, roster, members, subsById, activeSubs, prices })
   };
 
