@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f6f7f9">
+<title>Choir TLV — Follow-up</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --soft:#f1f3f6;
+    --accent:#0f766e; --accent-ink:#fff;
+    --now:#c2410c; --now-bg:#fff4ed; --now-line:#fed7aa;
+    --wait:#475569; --wait-bg:#f8fafc;
+    --g:#15803d; --g-bg:#dcfce7; --a:#b45309; --a-bg:#fef3c7; --r:#b91c1c; --r-bg:#fee2e2; --b:#1d4ed8; --b-bg:#dbeafe;
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0b1220; --card:#131c2b; --ink:#e5e7eb; --muted:#9aa4b2; --line:#25314a; --soft:#1a2436;
+      --accent:#14b8a6; --accent-ink:#04211d;
+      --now:#fb923c; --now-bg:#2a1708; --now-line:#7c2d12;
+      --wait:#94a3b8; --wait-bg:#111a29;
+      --g:#4ade80; --g-bg:#0f2e1c; --a:#fbbf24; --a-bg:#2a2109; --r:#f87171; --r-bg:#2e1212; --b:#93c5fd; --b-bg:#132542;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;-webkit-text-size-adjust:100%}
+  button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,select,textarea{font:inherit;color:inherit}
+  .hidden{display:none!important}
+
+  /* header */
+  header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+  .hin{max-width:1180px;margin:0 auto;padding:10px 14px 0}
+  .top{display:flex;align-items:center;gap:10px}
+  .top h1{font-size:17px;margin:0;flex:1;white-space:nowrap}
+  .top h1 small{color:var(--muted);font-weight:500}
+  .iconbtn{color:var(--muted);padding:6px 8px;border-radius:8px;font-size:18px;line-height:1}
+  .iconbtn:hover{background:var(--soft)}
+  .spin{animation:s .7s linear infinite} @keyframes s{to{transform:rotate(360deg)}}
+  .groups{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none}
+  .chip{flex:0 0 auto;border:1px solid var(--line);background:var(--card);padding:6px 12px;border-radius:999px;font-size:14px;font-weight:500}
+  .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .tabs{display:flex;gap:2px;margin-top:8px}
+  .tab{padding:10px 16px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;display:flex;align-items:center;gap:8px}
+  .tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+  .badge{font-size:12px;font-weight:700;min-width:22px;padding:1px 7px;border-radius:999px;background:var(--now-bg);color:var(--now);border:1px solid var(--now-line);text-align:center}
+  .badge.zero{background:var(--soft);color:var(--muted);border-color:var(--line)}
+
+  main{max-width:1180px;margin:0 auto;padding:14px 14px 80px;display:grid;grid-template-columns:330px 1fr;gap:16px;align-items:start}
+  @media (max-width:860px){ main{grid-template-columns:1fr} }
+
+  /* funnel */
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 10px;display:flex;justify-content:space-between}
+  .panel h2 button{font-size:12px;text-transform:none;letter-spacing:0;color:var(--accent);font-weight:600}
+  .lane{font-size:12px;color:var(--muted);margin:12px 0 4px;font-weight:600}
+  .lane:first-of-type{margin-top:0}
+  .stage{display:block;width:100%;text-align:left;padding:6px 8px;border-radius:10px;margin:2px 0;position:relative}
+  .stage:hover{background:var(--soft)}
+  .stage.sel{background:var(--soft);outline:2px solid var(--accent);outline-offset:-2px}
+  .stage.dim{opacity:.45}
+  .srow{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:14px}
+  .srow b{font-variant-numeric:tabular-nums}
+  .srow .nowc{font-size:12px;color:var(--now);font-weight:700;margin-left:6px}
+  .bar{height:8px;border-radius:4px;margin-top:4px;background:var(--soft);overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:4px;min-width:3px}
+  .t-g i{background:var(--g)} .t-a i{background:var(--a)} .t-r i{background:var(--r)} .t-b i{background:var(--b)} .t-n i{background:var(--muted)}
+  .arrow{text-align:center;color:var(--line);font-size:11px;line-height:8px;margin:0}
+  .panel.collapsed .stage,.panel.collapsed .lane,.panel.collapsed .arrow,.panel.collapsed .foot{display:none}
+  .panel.collapsed h2{margin:0}
+  .ftog{display:none}
+  @media (max-width:860px){ .ftog{display:inline} .panel h2{cursor:pointer} }
+  .foot{font-size:12px;color:var(--muted);margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+
+  /* lists */
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  @media (max-width:1100px){ .cols{grid-template-columns:1fr} }
+  .col h3{font-size:15px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+  .col h3 .dot{width:10px;height:10px;border-radius:50%}
+  .col h3 .n{color:var(--muted);font-weight:500}
+  .col.now h3 .dot{background:var(--now)} .col.wait h3 .dot{background:var(--wait)}
+  .col .sub{font-size:12px;color:var(--muted);margin:-4px 0 8px}
+  .filterbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:14px}
+  .filterbar .chip{font-size:13px;padding:4px 10px}
+  .search{flex:1;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 12px;min-width:0}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 10px 10px 12px;margin-bottom:8px;display:flex;gap:10px;align-items:center;border-left:4px solid var(--line)}
+  .col.now .card{border-left-color:var(--now)}
+  .card .who{flex:1;min-width:0;cursor:pointer}
+  .card .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card .gtag{font-size:11px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 5px;margin-left:6px;vertical-align:1px}
+  .card .why{font-size:13px;color:var(--muted);margin-top:1px}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;margin-right:6px}
+  .p-g{background:var(--g-bg);color:var(--g)} .p-a{background:var(--a-bg);color:var(--a)} .p-r{background:var(--r-bg);color:var(--r)} .p-b{background:var(--b-bg);color:var(--b)} .p-n{background:var(--soft);color:var(--muted)}
+  .last{font-size:12px;margin-top:3px;color:var(--muted)}
+  .last.fresh{color:var(--g)}
+  .wa{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:#25d366;color:#fff;flex:0 0 auto;text-decoration:none}
+  .wa.off{background:var(--soft);color:var(--muted);pointer-events:none}
+  .wa svg{width:22px;height:22px}
+  .logbtn{height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--line);font-weight:600;flex:0 0 auto}
+  .logbtn:hover{background:var(--soft)}
+  .empty{color:var(--muted);font-size:14px;padding:18px;text-align:center;border:1px dashed var(--line);border-radius:12px}
+
+  /* sheet */
+  dialog{border:none;border-radius:18px;padding:0;width:min(520px,calc(100vw - 20px));max-height:calc(100vh - 30px);background:var(--card);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  dialog::backdrop{background:rgba(15,23,42,.45)}
+  @media (max-width:600px){ dialog{margin:auto 0 0;width:100vw;max-width:100vw;border-radius:18px 18px 0 0} }
+  .sh{padding:16px 18px 6px;display:flex;gap:10px;align-items:flex-start}
+  .sh .t{flex:1} .sh .t b{font-size:18px} .sh .t div{font-size:13px;color:var(--muted)}
+  .sb{padding:6px 18px 18px}
+  .lbl{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px}
+  .seg{display:flex;flex-wrap:wrap;gap:6px}
+  .seg button{border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:14px;font-weight:500}
+  .seg button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .outs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .outs button{border:1px solid var(--line);border-radius:12px;padding:12px 10px;text-align:left;font-weight:600;font-size:14px}
+  .outs button small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+  .outs button.on{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:-2px;background:var(--soft)}
+  textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg);min-height:54px;resize:vertical}
+  .hold{border:1px dashed var(--line);border-radius:12px;padding:10px;margin-top:12px}
+  .hold summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--muted)}
+  .holdrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:14px}
+  .holdrow input[type=date]{border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--bg)}
+  .hist{margin-top:14px;border-top:1px solid var(--line);padding-top:10px;font-size:13px}
+  .hist div{padding:3px 0;color:var(--muted)} .hist b{color:var(--ink);font-weight:600}
+  .actions{display:flex;gap:8px;margin-top:16px}
+  .primary{flex:1;background:var(--accent);color:var(--accent-ink);border-radius:12px;padding:13px;font-weight:700}
+  .primary:disabled{opacity:.45;cursor:default}
+  .ghost{border:1px solid var(--line);border-radius:12px;padding:13px 16px;font-weight:600}
+
+  .setup{max-width:460px;margin:60px auto;padding:20px}
+  .setup input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--card);margin:10px 0}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;z-index:99;box-shadow:0 6px 20px rgba(0,0,0,.2);max-width:90vw}
+  .toast.bad{background:var(--r)}
+  #loading{padding:60px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<section id="setup" class="setup hidden">
+  <h2>Choir TLV — Follow-up</h2>
+  <p>Paste the Airtable token once on this device (same token as the attendance app).</p>
+  <input id="tokenIn" type="password" placeholder="pat…" autocomplete="off">
+  <button class="primary" id="tokenSave" style="width:100%">Save</button>
+</section>
+
+<header id="hdr" class="hidden">
+  <div class="hin">
+    <div class="top">
+      <h1>Follow-up <small id="asOf"></small></h1>
+      <button class="iconbtn" id="refresh" title="Refresh">⟳</button>
+    </div>
+    <div class="groups" id="groups"></div>
+    <div class="tabs">
+      <button class="tab on" data-screen="sales">Sales <span class="badge" id="bSales">0</span></button>
+      <button class="tab" data-screen="retention">Retention <span class="badge" id="bRet">0</span></button>
+    </div>
+  </div>
+</header>
+
+<div id="loading" class="hidden">Loading…</div>
+
+<main id="main" class="hidden">
+  <aside class="panel" id="funnel"></aside>
+  <section>
+    <div class="filterbar">
+      <input class="search" id="search" placeholder="Search name or phone">
+      <span id="stageFilter"></span>
+    </div>
+    <div class="cols">
+      <div class="col now"><h3><span class="dot"></span>Contact now <span class="n" id="nNow"></span></h3><div class="sub">Not contacted yet for this step — oldest first</div><div id="listNow"></div></div>
+      <div class="col wait"><h3><span class="dot"></span>Can wait <span class="n" id="nWait"></span></h3><div class="sub">Already contacted, or not time-critical</div><div id="listWait"></div></div>
+    </div>
+  </section>
+</main>
+
+<dialog id="sheet">
+  <div class="sh">
+    <div class="t"><b id="shName"></b><div id="shMeta"></div></div>
+    <a class="wa" id="shWa" target="_blank" rel="noopener" title="Open WhatsApp"></a>
+  </div>
+  <div class="sb">
+    <div class="lbl">How</div>
+    <div class="seg" id="shChannel"></div>
+    <div class="lbl">Result</div>
+    <div class="outs" id="shOutcome"></div>
+    <div class="lbl">Note <span style="text-transform:none;font-weight:400">(optional)</span></div>
+    <textarea id="shNote" placeholder="e.g. busy until January, asked about price"></textarea>
+    <details class="hold" id="shHold">
+      <summary>Manager decision (put on hold / stop)</summary>
+      <div class="seg" id="shDecision" style="margin-top:8px"></div>
+      <div class="holdrow" id="shUntilRow">
+        Until <input type="date" id="shUntil"> <label><input type="checkbox" id="shIndef"> indefinitely</label>
+      </div>
+    </details>
+    <div class="hist" id="shHist"></div>
+    <div class="actions">
+      <button class="ghost" id="shCancel">Cancel</button>
+      <button class="primary" id="shSave" disabled>Save</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+(() => {
+"use strict";
+
+/* ================= config ================= */
+const BASE = "appZqiHpTJLLh90eP";
+const T = { members:"tbluBsfQK97mUAFzC", comms:"tblLbWXczojxQyATT" };
+const API = "https://api.airtable.com/v0/";
+const LS_TOKEN = "choir.att.token";       // shared with the attendance app
+const LS_GROUP = "choir.fu.group";
+const LS_SCREEN = "choir.fu.screen";
+
+const MEMBER_FIELDS = ["Full Name","Phone","Group","Lifecycle Status","Funnel","Registration Date","Last Attended",
+  "Last Touch","Visits 30d","Classes Attended","Manager Decision","Decision Until","Sub Type","Sub End Date",
+  "Classes Remaining","Last Paid Sub End","First Ticket Bought","Active Paid Sub Start","Paid Subs Ever"];
+const COMM_FIELDS = ["Member","Date","Channel","Outcome","Note","Purpose","Summary"];
+
+/*
+ * One entry per step of each funnel. Edit here to change wording, order or priority.
+ *   tone      colour of the step: g ok · b in progress · a needs work · r at risk · n neutral
+ *   urgent    true → goes to "Contact now" unless contacted within `cooldown` days
+ *   list      false → shown in the funnel only (nobody needs a message)
+ *   since     which date "days waiting" is counted from
+ *   purpose   Communications.Purpose written when a contact is logged
+ */
+const SALES = [
+  { lane:"Leads" },
+  { key:"Lead",                   label:"New lead",              tone:"b", urgent:true,  cooldown:2,  since:"reg",    purpose:"Lead reply",            why:"Registered, no ticket yet" },
+  { key:"Lead - follow up",       label:"Lead, no reply",        tone:"a", urgent:true,  cooldown:4,  since:"reg",    purpose:"Lead reply",            why:"Registered 7+ days ago, no ticket" },
+  { lane:"Trial booked" },
+  { key:"Trial",                  label:"Ticket, coming soon",   tone:"b", urgent:false, cooldown:7,  since:"ticket", purpose:"First-class follow-up", why:"Bought a trial/ticket, class ahead" },
+  { key:"Trial - missed class",   label:"Missed trial",          tone:"a", urgent:true,  cooldown:3,  since:"ticket", purpose:"First-class follow-up", why:"Has a ticket but missed the class" },
+  { lane:"Came to a class" },
+  { key:"Trial - sell promo",     label:"Promo window",          tone:"r", urgent:true,  cooldown:1,  since:"visit",  purpose:"First-class follow-up", why:"Came today/yesterday — promo ends tomorrow" },
+  { key:"Trial - sell sub",       label:"Came, sell sub",        tone:"a", urgent:true,  cooldown:4,  since:"visit",  purpose:"First-class follow-up", why:"Came 1–2 times, no subscription" },
+  { key:"Sales - about to churn", label:"Going cold",            tone:"r", urgent:false, cooldown:7,  since:"touch",  purpose:"Lead reply",            why:"No progress for weeks — last nudge" },
+  { lane:"Result" },
+  { key:"_converted",             label:"Bought first sub (30d)",tone:"g", list:false },
+];
+const RETENTION = [
+  { lane:"With subscription" },
+  { key:"Sub",                    label:"Sub, coming",           tone:"g", list:false },
+  { key:"_renew",                 label:"Sub ends soon",         tone:"b", urgent:false, cooldown:5,  since:"end",    purpose:"Renewal",      why:"Subscription ends within 7 days" },
+  { key:"Sub - about to churn",   label:"Sub, stopped coming",   tone:"r", urgent:true,  cooldown:5,  since:"touch",  purpose:"Reactivation", why:"Paid, but missed 2 weeks" },
+  { lane:"Subscription ended" },
+  { key:"Sub ended - reactivate", label:"Sub ended",             tone:"a", urgent:true,  cooldown:5,  since:"subend", purpose:"Renewal",      why:"Ended, not renewed (<30 days)" },
+  { key:"Sub ended - about to churn", label:"Ended 30+ days",    tone:"r", urgent:false, cooldown:10, since:"subend", purpose:"Renewal",      why:"Ended a month ago — last chance" },
+  { lane:"No subscription" },
+  { key:"Active - no sub",        label:"Single tickets",        tone:"g", list:false },
+  { key:"Active - no sub - sell sub", label:"Regular, sell sub", tone:"b", urgent:true,  cooldown:7,  since:"visit",  purpose:"Other",        why:"3+ visits in 30 days on singles" },
+  { key:"Active - about to churn",label:"Regular, stopped",      tone:"r", urgent:true,  cooldown:5,  since:"touch",  purpose:"Reactivation", why:"Used to come, missed 2 weeks" },
+];
+const SCREENS = { sales:SALES, retention:RETENTION };
+// A renewal reminder becomes urgent this many days before the end date.
+const RENEW_WINDOW = 7, RENEW_URGENT = 3;
+
+const CHANNELS = ["WhatsApp","Call","In person","Telegram"];
+const OUTCOMES = [
+  { v:"No answer",      t:"Sent / no reply",  s:"Try again later" },
+  { v:"Replied",        t:"Replied",          s:"Talking, no decision" },
+  { v:"Will return",    t:"Will come",        s:"Said they'll come / buy" },
+  { v:"Scheduled",      t:"Booked",           s:"Agreed a date / bought" },
+  { v:"Not interested", t:"Not interested",   s:"Consider a decision below" },
+];
+// After these outcomes the person stays in "Can wait" longer than the step's cooldown.
+const OUTCOME_COOLDOWN = { "Will return":7, "Scheduled":7, "Not interested":30 };
+const DECISIONS = ["Coming later","Paused","Single tickets","Do not contact"];
+
+/*
+ * Message templates — to be filled in later. Key = step key, value = text with
+ * {name} for the first name. When a template exists, the WhatsApp button opens
+ * the chat with the text already typed.
+ */
+const TEMPLATES = {};
+
+/* ================= state ================= */
+let token = "", members = [], comms = [], group = "All", screen = "sales", stageSel = null, q = "";
+let today = "", cur = null, pick = {}, funnelOpen = false;
+
+/* ================= helpers ================= */
+const $ = s => document.querySelector(s);
+const el = (t,c,txt) => { const n=document.createElement(t); if(c) n.className=c; if(txt!=null) n.textContent=txt; return n; };
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const d10 = v => (Array.isArray(v) ? v[0] : v) ? String(Array.isArray(v)?v[0]:v).slice(0,10) : null;
+const days = (a,b) => Math.round((new Date(b+"T00:00:00") - new Date(a+"T00:00:00"))/864e5);
+const addDays = (s,n) => { const d=new Date(s+"T00:00:00"); d.setDate(d.getDate()+n); return iso(d); };
+const fmt = s => s ? new Date(s+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"}) : "";
+const ago = n => n<=0 ? "today" : n===1 ? "yesterday" : `${n}d ago`;
+const norm = s => (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+const sel = v => v && typeof v==="object" ? v.name : v;
+const lookup = v => Array.isArray(v) ? v.map(sel).filter(x=>x!=null&&x!=="") : (v==null||v===""?[]:[sel(v)]);
+const firstName = n => (n||"").trim().split(/\s+/)[0] || "";
+
+function toast(msg,bad){
+  document.querySelectorAll(".toast").forEach(t=>t.remove());
+  const t=el("div","toast"+(bad?" bad":""),msg);
+  (document.querySelector("dialog[open]")||document.body).appendChild(t);
+  setTimeout(()=>t.remove(), bad?6000:2400);
+}
+
+// Phone → wa.me number. Israeli local formats (05x…, 5x… with 9 digits) get 972.
+function waNumber(p){
+  if(!p) return null;
+  let s=String(p).replace(/[^\d+]/g,"");
+  if(!s || s.replace("+","").length<8) return null;
+  if(s.startsWith("+")) return s.slice(1);
+  if(s.startsWith("00")) return s.slice(2);
+  if(s.startsWith("0")) return "972"+s.slice(1);
+  if(s.length===9 && s.startsWith("5")) return "972"+s;
+  return s;
+}
+const WA_ICON = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z"/></svg>';
+function waLink(m){
+  const n=waNumber(m.phone);
+  if(!n) return null;
+  const tpl=TEMPLATES[m.stage];
+  return "https://wa.me/"+n+(tpl?"?text="+encodeURIComponent(tpl.replace(/\{name\}/g,firstName(m.name))):"");
+}
+
+/* ================= airtable ================= */
+async function at(path,opts={}){
+  const r=await fetch(API+path,{...opts,headers:{Authorization:"Bearer "+token,"Content-Type":"application/json",...(opts.headers||{})}});
+  if(!r.ok){ let d=""; try{const j=await r.json(); d=j.error?(j.error.message||j.error.type||""):"";}catch(_){} const e=new Error(`Airtable ${r.status}${d?": "+d:""}`); e.status=r.status; throw e; }
+  return r.json();
+}
+async function all(table,fields){
+  let out=[],offset;
+  do{
+    const p=new URLSearchParams(); fields.forEach(f=>p.append("fields[]",f)); p.set("pageSize","100"); if(offset) p.set("offset",offset);
+    const j=await at(`${BASE}/${table}?${p}`); out=out.concat(j.records); offset=j.offset;
+  }while(offset);
+  return out;
+}
+
+/* ================= model ================= */
+function shape(r){
+  const f=r.fields, stage=f["Lifecycle Status"]||"";
+  const m={ id:r.id, name:(f["Full Name"]||"(no name)").trim(), phone:f["Phone"]||"",
+    groups:lookup(f["Group"]), stage, funnel:f["Funnel"]||"",
+    reg:d10(f["Registration Date"]), visit:d10(f["Last Attended"]), touch:d10(f["Last Touch"]),
+    ticket:d10(f["First Ticket Bought"]), subend:d10(f["Last Paid Sub End"]),
+    visits30:f["Visits 30d"]||0, visitsAll:f["Classes Attended"]||0,
+    subTypes:lookup(f["Sub Type"]), subEnds:lookup(f["Sub End Date"]).map(d10).filter(Boolean).sort(),
+    remaining:lookup(f["Classes Remaining"]).map(Number).filter(Number.isFinite),
+    paidStart:d10(f["Active Paid Sub Start"]), paidEver:f["Paid Subs Ever"]||0,
+    decision:sel(f["Manager Decision"])||"", until:d10(f["Decision Until"]) };
+  if(!m.groups.length) m.groups=["No group"];
+  // Derived step: a healthy sub that is about to end is a renewal conversation.
+  m.step=stage;
+  if(stage==="Sub"){
+    const paidIdx=m.subTypes.findIndex(t=>t==="monthly 4x"||t==="monthly unlimited");
+    const end = paidIdx>=0 ? (m.subEnds[paidIdx]||m.subEnds[0]) : m.subEnds[0];
+    const is4x = m.subTypes.includes("monthly 4x") && !m.subTypes.includes("monthly unlimited");
+    const left = is4x ? Math.min(...m.remaining) : null;
+    m.end=end||null; m.left=Number.isFinite(left)?left:null;
+    const dLeft = end ? days(today,end) : 99;
+    if(dLeft<=RENEW_WINDOW || (m.left!==null && m.left<=1)){ m.step="_renew"; m.renewUrgent = dLeft<=RENEW_URGENT || m.left===0; }
+  }
+  return m;
+}
+
+function lastComm(id){ return comms.filter(c=>c.member===id).sort((a,b)=>(b.date||"").localeCompare(a.date||""))[0]||null; }
+
+// Which list a member lands in, and why.
+function bucket(m,cfg){
+  const lc=lastComm(m.id);
+  const cd=Math.max(cfg.cooldown||0, lc?(OUTCOME_COOLDOWN[lc.outcome]||0):0);
+  const since = sinceDate(m,cfg.since);
+  // A contact only counts for the current step if it happened after the step began
+  // (e.g. a message sent before their first visit doesn't cover the follow-up).
+  const recent = lc && lc.date && days(lc.date,today)<cd && (!since || lc.date>=since);
+  const urgent = m.step==="_renew" ? m.renewUrgent : cfg.urgent;
+  return { now: urgent && !recent, lc, recent };
+}
+function sinceDate(m,k){
+  return k==="reg"?m.reg : k==="visit"?m.visit : k==="ticket"?(m.ticket||m.reg) : k==="subend"?m.subend : k==="end"?addDays(m.end||today,-RENEW_WINDOW) : m.touch||m.visit||m.reg;
+}
+function reason(m,cfg){
+  const s=m.step;
+  if(s==="_renew") return m.left===0 ? "4× used up" : m.left!=null && m.left<=1 ? `${m.left} class left · ends ${fmt(m.end)}` : `Ends ${fmt(m.end)} (${days(today,m.end)<=0?"today":"in "+days(today,m.end)+"d"})`;
+  if(s==="Lead"||s==="Lead - follow up") return `Registered ${fmt(m.reg)} · ${ago(days(m.reg,today))}`;
+  if(s==="Trial"||s==="Trial - missed class") return `Ticket ${fmt(m.ticket)} · not came yet`;
+  if(s==="Trial - sell promo") return `Came ${m.visit===today?"today":fmt(m.visit)} · promo until ${fmt(addDays(m.visit,1))}`;
+  if(s==="Trial - sell sub") return `${m.visitsAll} visit${m.visitsAll===1?"":"s"} · last ${fmt(m.visit)}`;
+  if(s==="Sub ended - reactivate"||s==="Sub ended - about to churn") return `Sub ended ${fmt(m.subend)} · ${ago(days(m.subend,today))}`;
+  if(s==="Active - no sub - sell sub") return `${m.visits30} visits in 30 days, no sub`;
+  if(m.visit) return `Last came ${fmt(m.visit)} · ${ago(days(m.visit,today))}`;
+  return cfg.why||"";
+}
+function waitingDays(m,cfg){ const s=sinceDate(m,cfg.since); return s?days(s,today):0; }
+
+function inGroup(m){ return group==="All" || m.groups.includes(group); }
+function converted(m){ return m.funnel!=="Sales" && m.paidEver===1 && m.paidStart && days(m.paidStart,today)<=30; }
+
+/* ================= render ================= */
+function render(){
+  const pool=members.filter(inGroup);
+  renderGroups();
+  // tab badges
+  ["sales","retention"].forEach(sc=>{
+    const n=SCREENS[sc].filter(c=>c.key&&c.list!==false).reduce((a,c)=>a+pool.filter(m=>m.step===c.key&&bucket(m,c).now).length,0);
+    const b=$(sc==="sales"?"#bSales":"#bRet"); b.textContent=n; b.classList.toggle("zero",!n);
+  });
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.dataset.screen===screen));
+
+  const steps=SCREENS[screen];
+  // ---- funnel
+  const fz=$("#funnel"); fz.innerHTML="";
+  const h=el("h2"); const ht=el("span",null,screen==="sales"?"Sales funnel ":"Retention ");
+  ht.append(el("span","ftog",funnelOpen?"▾":"▸")); h.append(ht);
+  ht.onclick=()=>{ funnelOpen=!funnelOpen; render(); };
+  fz.classList.toggle("collapsed", !funnelOpen && matchMedia("(max-width:860px)").matches);
+  if(stageSel){ const b=el("button",null,"Show all"); b.onclick=()=>{stageSel=null;render();}; h.append(b); }
+  fz.append(h);
+  const counts={}; steps.forEach(c=>{ if(c.key) counts[c.key]= c.key==="_converted" ? pool.filter(converted).length : pool.filter(m=>m.step===c.key).length; });
+  const max=Math.max(1,...Object.values(counts));
+  let prevLane=false;
+  steps.forEach(c=>{
+    if(c.lane){ if(screen==="sales"&&prevLane) fz.append(el("div","arrow","▼")); fz.append(el("div","lane",c.lane)); prevLane=true; return; }
+    const n=counts[c.key], nowN = c.list===false?0:pool.filter(m=>m.step===c.key&&bucket(m,c).now).length;
+    const b=el("button","stage"+(stageSel===c.key?" sel":"")+(stageSel&&stageSel!==c.key?" dim":""));
+    const row=el("div","srow"); const l=el("span",null,c.label);
+    if(nowN) l.append(el("span","nowc",`${nowN} now`));
+    row.append(l, el("b",null,n));
+    const bar=el("div","bar t-"+c.tone); const i=el("i"); i.style.width=(n?Math.max(3,100*n/max):0)+"%"; bar.append(i);
+    b.append(row,bar);
+    if(c.list===false){ b.title="Nothing to do here — shown for the overall picture"; b.style.cursor="default"; }
+    else b.onclick=()=>{ stageSel = stageSel===c.key?null:c.key; render(); };
+    fz.append(b);
+  });
+  const onHold=pool.filter(m=>m.stage==="On hold").length, dnc=pool.filter(m=>m.stage==="Do not contact").length, churn=pool.filter(m=>m.funnel==="Churned").length;
+  fz.append(el("div","foot",`Not shown: on hold ${onHold} · do not contact ${dnc} · churned ${churn}`));
+
+  // ---- lists
+  const sf=$("#stageFilter"); sf.innerHTML="";
+  if(stageSel){ const c=steps.find(x=>x.key===stageSel); const b=el("button","chip on",c.label+"  ✕"); b.onclick=()=>{stageSel=null;render();}; sf.append(b); }
+  const now=[],wait=[];
+  steps.filter(c=>c.key&&c.list!==false&&(!stageSel||c.key===stageSel)).forEach((c,ord)=>{
+    pool.filter(m=>m.step===c.key).forEach(m=>{
+      if(q && !norm(m.name+" "+m.phone).includes(norm(q))) return;
+      const bk=bucket(m,c); (bk.now?now:wait).push({m,c,bk,ord,w:waitingDays(m,c)});
+    });
+  });
+  // Contact now: the most time-critical steps first (promo, stopped-coming subs), then longest waiting.
+  const pri=k=>({"Trial - sell promo":0,"Sub - about to churn":1,"_renew":2,"Lead":3,"Trial - missed class":4}[k] ?? 9);
+  now.sort((a,b)=>pri(a.c.key)-pri(b.c.key) || b.w-a.w);
+  // Can wait: not-yet-contacted first, then by who was contacted longest ago.
+  wait.sort((a,b)=>(a.bk.recent?1:0)-(b.bk.recent?1:0) || (a.bk.lc?.date||"").localeCompare(b.bk.lc?.date||"") || b.w-a.w);
+  fill($("#listNow"),now,"Nobody to contact right now 🎉"); fill($("#listWait"),wait,"Empty");
+  $("#nNow").textContent=now.length; $("#nWait").textContent=wait.length;
+}
+function fill(box,items,emptyTxt){
+  box.innerHTML="";
+  if(!items.length){ box.append(el("div","empty",emptyTxt)); return; }
+  items.forEach(({m,c,bk})=>{
+    const card=el("div","card");
+    const who=el("div","who"); who.onclick=()=>openSheet(m.id);
+    const nm=el("div","name",m.name);
+    if(group==="All") m.groups.forEach(g=>nm.append(el("span","gtag",g)));
+    const why=el("div","why"); why.append(el("span","pill p-"+c.tone,c.label)); why.append(document.createTextNode(reason(m,c)));
+    who.append(nm,why);
+    if(bk.lc){ const n=days(bk.lc.date,today); who.append(el("div","last"+(bk.recent?" fresh":""),`Contacted ${ago(n)} · ${bk.lc.channel||""}${bk.lc.outcome?" · "+bk.lc.outcome:""}`)); }
+    else who.append(el("div","last","Not contacted yet"));
+    const link=waLink(m); const wa=el("a","wa"+(link?"":" off")); wa.innerHTML=WA_ICON; if(link){wa.href=link; wa.target="_blank"; wa.rel="noopener"; wa.onclick=()=>{ pendingWa=m.id; };} wa.title=link?"Open WhatsApp":"No phone number";
+    const lb=el("button","logbtn","Log"); lb.onclick=()=>openSheet(m.id);
+    card.append(who,wa,lb); box.append(card);
+  });
+}
+function renderGroups(){
+  const set=new Set(); members.forEach(m=>m.groups.forEach(g=>set.add(g)));
+  const list=["All",...[...set].filter(g=>g!=="No group").sort(), ...(set.has("No group")?["No group"]:[])];
+  if(!list.includes(group)) group="All";
+  const box=$("#groups"); box.innerHTML="";
+  list.forEach(g=>{ const b=el("button","chip"+(g===group?" on":""),g); b.onclick=()=>{group=g; stageSel=null; localStorage.setItem(LS_GROUP,g); render();}; box.append(b); });
+}
+
+/* ================= log sheet ================= */
+let pendingWa=null;
+function segment(box,opts,key,onPick){
+  box.innerHTML="";
+  opts.forEach(o=>{ const v=o.v||o; const b=el("button",pick[key]===v?"on":null);
+    if(o.t){ b.append(document.createTextNode(o.t)); b.append(el("small",null,o.s)); } else b.textContent=v;
+    b.type="button"; b.onclick=()=>{ pick[key]= pick[key]===v && key==="decision" ? null : v; segment(box,opts,key,onPick); onPick&&onPick(); }; box.append(b); });
+}
+function openSheet(id){
+  const m=members.find(x=>x.id===id); if(!m) return; cur=m;
+  const cfg=Object.values(SCREENS).flat().find(c=>c.key===m.step)||{};
+  pick={ channel:"WhatsApp", outcome:null, decision:null };
+  $("#shName").textContent=m.name;
+  $("#shMeta").textContent=[cfg.label||m.stage, m.groups.join(", "), m.phone].filter(Boolean).join(" · ");
+  const link=waLink(m), wa=$("#shWa"); wa.innerHTML=WA_ICON; wa.className="wa"+(link?"":" off"); link?wa.href=link:wa.removeAttribute("href");
+  segment($("#shChannel"),CHANNELS,"channel");
+  segment($("#shOutcome"),OUTCOMES,"outcome",()=>{ $("#shSave").disabled=!pick.outcome && !pick.decision; if(pick.outcome==="Not interested") $("#shHold").open=true; });
+  segment($("#shDecision"),DECISIONS,"decision",()=>{ $("#shSave").disabled=!pick.outcome && !pick.decision; $("#shUntilRow").classList.toggle("hidden",!pick.decision||pick.decision==="Do not contact"); });
+  $("#shUntilRow").classList.add("hidden");
+  $("#shUntil").value=addDays(today,30); $("#shIndef").checked=false;
+  $("#shNote").value=""; $("#shHold").open=false; $("#shSave").disabled=true;
+  const hist=$("#shHist"); hist.innerHTML="";
+  const hs=comms.filter(c=>c.member===m.id).sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,5);
+  if(m.decision) hist.append(el("div",null,`Current decision: ${m.decision}${m.until?" until "+fmt(m.until):" (indefinitely)"}`));
+  if(hs.length){ hist.append(el("div",null,"History")); hs.forEach(c=>{ const d=el("div"); d.append(el("b",null,fmt(c.date)+" "), document.createTextNode([c.channel,c.outcome].filter(Boolean).join(" · ")+(c.note?" — "+c.note:""))); hist.append(d); }); }
+  else hist.append(el("div",null,"No contacts logged yet"));
+  $("#sheet").showModal();
+}
+async function save(){
+  const m=cur; if(!m) return;
+  const cfg=Object.values(SCREENS).flat().find(c=>c.key===m.step)||{};
+  const btn=$("#shSave"); btn.disabled=true; btn.textContent="Saving…";
+  try{
+    const note=$("#shNote").value.trim();
+    if(pick.outcome){
+      const fields={ Summary:`${pick.channel} · ${pick.outcome} · ${cfg.label||m.stage}`, Member:[m.id], Date:today,
+        Channel:pick.channel, Outcome:pick.outcome, Purpose:cfg.purpose||"Other" };
+      if(note) fields.Note=note;
+      const j=await at(`${BASE}/${T.comms}`,{method:"POST",body:JSON.stringify({records:[{fields}],typecast:false})});
+      const r=j.records[0]; comms.push({id:r.id,member:m.id,date:today,channel:pick.channel,outcome:pick.outcome,note});
+    }
+    if(pick.decision){
+      const until = pick.decision==="Do not contact"||$("#shIndef").checked ? null : $("#shUntil").value||null;
+      await at(`${BASE}/${T.members}`,{method:"PATCH",body:JSON.stringify({records:[{id:m.id,fields:{"Manager Decision":pick.decision,"Decision Until":until}}]})});
+      m.decision=pick.decision; m.until=until;
+      // Lifecycle Status recalculates in Airtable; mirror the effect until the next refresh.
+      if(pick.decision!=="Single tickets"){ m.stage= pick.decision==="Do not contact"?"Do not contact":"On hold"; m.step=m.stage; m.funnel="On hold"; }
+    }
+    $("#sheet").close(); toast(pick.decision?`Saved · ${m.name} → ${pick.decision}`:`Logged · ${m.name}`); render();
+  }catch(e){ toast("Not saved — "+e.message,true); }
+  finally{ btn.textContent="Save"; btn.disabled=false; }
+}
+
+/* ================= load ================= */
+async function load(){
+  $("#refresh").classList.add("spin");
+  if(!members.length){ $("#loading").classList.remove("hidden"); }
+  try{
+    today=iso(new Date());
+    const [mr,cr]=await Promise.all([all(T.members,MEMBER_FIELDS), all(T.comms,COMM_FIELDS)]);
+    comms=cr.map(r=>({id:r.id,member:(r.fields.Member||[])[0],date:d10(r.fields.Date)||r.createdTime.slice(0,10),channel:sel(r.fields.Channel),outcome:sel(r.fields.Outcome),note:r.fields.Note||""}));
+    members=mr.map(shape);
+    $("#asOf").textContent="· "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+    $("#hdr").classList.remove("hidden"); $("#main").classList.remove("hidden");
+    render();
+  }catch(e){
+    if(e.status===401||e.status===403){ localStorage.removeItem(LS_TOKEN); showSetup("That token was refused by Airtable — paste it again."); }
+    else toast("Could not load — "+e.message,true);
+  }finally{ $("#loading").classList.add("hidden"); $("#refresh").classList.remove("spin"); }
+}
+function showSetup(msg){ $("#setup").classList.remove("hidden"); $("#hdr").classList.add("hidden"); $("#main").classList.add("hidden"); if(msg) toast(msg,true); }
+
+$("#tokenSave").onclick=()=>{ const v=$("#tokenIn").value.trim(); if(!v) return; token=v; localStorage.setItem(LS_TOKEN,v); $("#setup").classList.add("hidden"); load(); };
+$("#refresh").onclick=load;
+$("#search").oninput=e=>{ q=e.target.value; render(); };
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ screen=t.dataset.screen; stageSel=null; localStorage.setItem(LS_SCREEN,screen); render(); });
+$("#shCancel").onclick=()=>$("#sheet").close();
+$("#shSave").onclick=save;
+$("#shIndef").onchange=e=>{ $("#shUntil").disabled=e.target.checked; };
+// Coming back from WhatsApp → open the log sheet for that person, so logging is one tap.
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible" && pendingWa && !$("#sheet").open){ const id=pendingWa; pendingWa=null; openSheet(id); } });
+
+group=localStorage.getItem(LS_GROUP)||"All";
+screen=localStorage.getItem(LS_SCREEN)||"sales";
+token=localStorage.getItem(LS_TOKEN)||"";
+window.__fu={ waNumber, shape:(r)=>shape(r), setToday:(d)=>{today=d;} };
+token ? load() : showSetup();
+})();
+</script>
+</body>
+</html>
