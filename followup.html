@@ -77,7 +77,9 @@
 
   /* lists */
   .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
-  @media (max-width:1100px){ .cols{grid-template-columns:1fr} }
+  .cols.three{grid-template-columns:1fr 1fr 1fr}
+  .col.prog h3 .dot{background:var(--b)} .col.prog .card{border-left-color:var(--b)}
+  @media (max-width:1100px){ .cols,.cols.three{grid-template-columns:1fr} }
   .col h3{font-size:15px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
   .col h3 .dot{width:10px;height:10px;border-radius:50%}
   .col h3 .n{color:var(--muted);font-weight:500}
@@ -170,8 +172,9 @@
       <input class="search" id="search" placeholder="Search name or phone">
       <span id="stageFilter"></span>
     </div>
-    <div class="cols">
+    <div class="cols" id="cols">
       <div class="col now"><h3><span class="dot"></span>Contact now <span class="n" id="nNow"></span></h3><div class="sub">Not contacted yet for this step — oldest first</div><div id="listNow"></div></div>
+      <div class="col prog hidden" id="colProg"><h3><span class="dot"></span>In progress <span class="n" id="nProg"></span></h3><div class="sub">Contacted, no answer yet — waiting before the next try</div><div id="listProg"></div></div>
       <div class="col wait"><h3><span class="dot"></span>Can wait <span class="n" id="nWait"></span></h3><div class="sub">Already contacted, or not time-critical</div><div id="listWait"></div></div>
     </div>
   </section>
@@ -395,6 +398,8 @@ function reason(m,cfg){
 }
 function waitingDays(m,cfg){ const s=sinceDate(m,cfg.since); return s?days(s,today):0; }
 
+// Manager marked them as a single-ticket person and the decision is still valid.
+function singleTicket(m){ return m.decision==="Single tickets" && (!m.until || m.until>=today); }
 function inGroup(m){ return group==="All" || m.groups.includes(group); }
 function converted(m){ return m.funnel!=="Sales" && m.paidEver===1 && m.paidStart && days(m.paidStart,today)<=30; }
 
@@ -404,7 +409,7 @@ function render(){
   renderGroups();
   // tab badges
   ["sales","retention"].forEach(sc=>{
-    const n=SCREENS[sc].filter(c=>c.key&&c.list!==false).reduce((a,c)=>a+pool.filter(m=>m.step===c.key&&bucket(m,c).now).length,0);
+    const n=SCREENS[sc].filter(c=>c.key&&c.list!==false).reduce((a,c)=>a+pool.filter(m=>m.step===c.key&&!(sc==="retention"&&singleTicket(m))&&bucket(m,c).now).length,0);
     const b=$(sc==="sales"?"#bSales":"#bRet"); b.textContent=n; b.classList.toggle("zero",!n);
   });
   document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.dataset.screen===screen));
@@ -423,7 +428,7 @@ function render(){
   let prevLane=false;
   steps.forEach(c=>{
     if(c.lane){ if(screen==="sales"&&prevLane) fz.append(el("div","arrow","▼")); fz.append(el("div","lane",c.lane)); prevLane=true; return; }
-    const n=counts[c.key], nowN = c.list===false?0:pool.filter(m=>m.step===c.key&&bucket(m,c).now).length;
+    const n=counts[c.key], nowN = c.list===false?0:pool.filter(m=>m.step===c.key&&!(screen==="retention"&&singleTicket(m))&&bucket(m,c).now).length;
     const b=el("button","stage"+(stageSel===c.key?" sel":"")+(stageSel&&stageSel!==c.key?" dim":""));
     const row=el("div","srow"); const l=el("span",null,c.label);
     if(nowN) l.append(el("span","nowc",`${nowN} now`));
@@ -440,11 +445,16 @@ function render(){
   // ---- lists
   const sf=$("#stageFilter"); sf.innerHTML="";
   if(stageSel){ const c=steps.find(x=>x.key===stageSel); const b=el("button","chip on",c.label+"  ✕"); b.onclick=()=>{stageSel=null;render();}; sf.append(b); }
-  const now=[],wait=[];
+  const now=[],wait=[],prog=[];
   steps.filter(c=>c.key&&c.list!==false&&(!stageSel||c.key===stageSel)).forEach((c,ord)=>{
     pool.filter(m=>m.step===c.key).forEach(m=>{
       if(q && !norm(m.name+" "+m.phone).includes(norm(q))) return;
-      const bk=bucket(m,c); (bk.now?now:wait).push({m,c,bk,ord,w:waitingDays(m,c)});
+      // Retention: people the manager marked as single-ticket are left alone.
+      if(screen==="retention" && singleTicket(m)) return;
+      const bk=bucket(m,c), it={m,c,bk,ord,w:waitingDays(m,c)};
+      // Sales: contacted for this step, no answer yet → "In progress".
+      if(!bk.now && screen==="sales" && bk.recent && bk.lc.outcome==="No answer") prog.push(it);
+      else (bk.now?now:wait).push(it);
     });
   });
   // Contact now: the most time-critical steps first (promo, stopped-coming subs), then longest waiting.
@@ -452,8 +462,10 @@ function render(){
   now.sort((a,b)=>pri(a.c.key)-pri(b.c.key) || b.w-a.w);
   // Can wait: not-yet-contacted first, then by who was contacted longest ago.
   wait.sort((a,b)=>(a.bk.recent?1:0)-(b.bk.recent?1:0) || (a.bk.lc?.date||"").localeCompare(b.bk.lc?.date||"") || b.w-a.w);
-  fill($("#listNow"),now,"Nobody to contact right now 🎉"); fill($("#listWait"),wait,"Empty");
-  $("#nNow").textContent=now.length; $("#nWait").textContent=wait.length;
+  prog.sort((a,b)=>(a.bk.lc?.date||"").localeCompare(b.bk.lc?.date||"") || b.w-a.w);
+  const three=screen==="sales"; $("#cols").classList.toggle("three",three); $("#colProg").classList.toggle("hidden",!three);
+  fill($("#listNow"),now,"Nobody to contact right now 🎉"); fill($("#listProg"),prog,"Empty"); fill($("#listWait"),wait,"Empty");
+  $("#nNow").textContent=now.length; $("#nProg").textContent=prog.length; $("#nWait").textContent=wait.length;
 }
 function fill(box,items,emptyTxt){
   box.innerHTML="";
